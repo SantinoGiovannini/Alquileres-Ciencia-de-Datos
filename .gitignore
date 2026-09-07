@@ -1,0 +1,19 @@
+# entorno
+.env
+__pycache__/
+*.pyc
+
+# airflow runtime
+logs/*
+!logs/.gitkeep
+plugins/*
+!plugins/.gitkeep
+
+# datos (capa bronce y plata no se versionan, pesan y no son código)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# docker-compose.yaml oficial de Airflow: se descarga en cada máquina (Fase 0), no se versiona
+docker-compose.yaml
