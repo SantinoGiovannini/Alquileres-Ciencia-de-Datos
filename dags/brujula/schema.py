@@ -1,10 +1,17 @@
 """
 Esquema canonico de Brujula Inmobiliaria (Entrega 1).
 
-Unidad de observacion: un aviso de departamento en alquiler publicado en
-Inmoclick para la provincia de Mendoza, en el momento del scraping. Clave
-primaria: `listing_id` (el `kid` interno de Inmoclick -- unico por aviso en
-todo el sitio, a diferencia de `prp_id`, que se reinicia por publicador).
+Unidad de observacion: un aviso de alquiler (departamento o casa) publicado
+en Inmoclick o argenprop para la provincia de Mendoza, en el momento del
+scraping. Clave primaria: `listing_id` (el `kid` interno de Inmoclick, o
+`argenprop-<id>` para los avisos de esa fuente -- el prefijo evita
+colisiones entre las dos, y dentro de cada una es unico por aviso).
+
+Por que dos tipos de propiedad y dos fuentes: Inmoclick solo (aun sumando
+departamentos y casas) da ~980 avisos, por debajo del piso de 1.000 filas
+del criterio "Volumen suficiente". argenprop corre siempre, no solo como
+respaldo ante una caida, para llegar comodo a ese piso (ver el docstring de
+`dags/brujula_pipeline.py`).
 
 `precio_m2` es la columna objetivo de la propuesta (precio / superficie
 cubierta): el modelo de U3 es una regresion sobre esta columna, y el

@@ -49,17 +49,17 @@ PAGE_SIZE = 24
 # libre (avisos de otras provincias donde "Mendoza" aparece en la direccion).
 LOCALIDADES_MENDOZA = [1, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 514]
 
-TIPO = "departamentos"
+TIPOS = ("departamentos", "casas")
 CONDICION = "alquiler"
 
 
-def listing_url(page=1, localidades=None):
-    """URL de una pagina del listado de departamentos en alquiler en Mendoza."""
+def listing_url(tipo, page=1, localidades=None):
+    """URL de una pagina del listado (tipo: departamentos|casas) en alquiler en Mendoza."""
     localidades = localidades if localidades is not None else LOCALIDADES_MENDOZA
     parts = [f"localidades%5B%5D={i}" for i in localidades]
     if page > 1:
         parts.append(f"page={page}")
-    return f"{BASE}/{TIPO}-en-{CONDICION}?" + "&".join(parts)
+    return f"{BASE}/{tipo}-en-{CONDICION}?" + "&".join(parts)
 
 
 # --------------------------------------------------------------- descarga

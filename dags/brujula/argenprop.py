@@ -85,9 +85,32 @@ def fetch_bytes(url, timeout=30, retries=3):
             time.sleep(2 * (intento + 1))
 
 
+def _renderizar(page, url, timeout):
+    """`networkidle` resulto poco confiable en esta fuente: la pagina tiene
+    actividad de red de fondo (probablemente el widget de mapa de
+    OpenStreetMap) que a veces nunca deja que la red quede quieta -- contra
+    el sitio real, `networkidle` tardaba el timeout completo (45s) en
+    algunas fichas y en otras devolvia el HTML antes de que `.location-label`
+    se terminara de pintar (94% de las fichas volvian sin ese dato).
+
+    Se espera en cambio el evento `load` (rapido y confiable) y despues, de
+    forma explicita, el elemento que sabemos que siempre termina
+    apareciendo (`.titlebar__price` -- sin precio la ficha no sirve de
+    todas formas). Un pequeno margen extra le da tiempo al resto del DOM
+    -- incluida la ubicacion -- a terminar de pintarse.
+    """
+    page.goto(url, wait_until="load", timeout=timeout)
+    try:
+        page.wait_for_selector(".titlebar__price", timeout=15000)
+    except Exception:
+        pass
+    page.wait_for_timeout(800)
+    return page.content()
+
+
 def fetch_browser(url, timeout=45000):
-    """Unica ruta valida para parsear una ficha: precio y superficie se
-    renderizan por JavaScript del lado del cliente."""
+    """Unica ruta valida para parsear una ficha: precio, superficie y
+    ubicacion se renderizan por JavaScript del lado del cliente."""
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -100,8 +123,7 @@ def fetch_browser(url, timeout=45000):
         page.route("**/*", lambda r: r.abort()
                    if r.request.resource_type in ("image", "font", "media")
                    else r.continue_())
-        page.goto(url, wait_until="networkidle", timeout=timeout)
-        html = page.content()
+        html = _renderizar(page, url, timeout)
         browser.close()
     return html
 
@@ -124,13 +146,33 @@ def fetch_many(urls, timeout=45000):
                   if r.request.resource_type in ("image", "font", "media")
                   else r.continue_())
         page = ctx.new_page()
-        for url in urls:
+        for i, url in enumerate(urls):
+            if i:
+                # AWS WAF ("Human Verification") empieza a bloquear despues
+                # de varios cientos de pedidos seguidos sin pausa -- se
+                # verifico contra el sitio real: sin esta espera, un lote de
+                # 337 fichas volvia con >90% de paginas de desafio en vez
+                # del contenido real. Con pausa entre pedidos, no.
+                time.sleep(1.2)
             try:
-                page.goto(url, wait_until="networkidle", timeout=timeout)
-                yield url, page.content(), None
+                html = _renderizar(page, url, timeout)
+                if _es_desafio_waf(html):
+                    yield url, None, RuntimeError("bloqueado por WAF (Human Verification)")
+                    continue
+                yield url, html, None
             except Exception as e:
                 yield url, None, e
         browser.close()
+
+
+def _es_desafio_waf(html):
+    """Argenprop referencia awswaf.com como script en TODAS sus paginas
+    (integracion normal, no significa bloqueo) -- se verifico que buscar
+    ese dominio daba falsos positivos sobre fichas reales de 350KB con
+    breadcrumb y precio completos. La pagina de desafio real es chica
+    (~10KB) y su `<title>` es literalmente "Human Verification"; se chequea
+    eso en vez del script."""
+    return len(html) < 20000 and "<title>Human Verification</title>" in html
 
 
 # ------------------------------------------------------- descubrimiento
@@ -151,31 +193,77 @@ def discover_urls():
         xml = gzip.decompress(fetch_bytes(hoja)).decode("utf-8")
         urls.extend(re.findall(r"<loc>([^<]+)</loc>", xml))
 
-    # Solo departamentos: es el segmento de la propuesta (ver README).
     candidatas = [u for u in urls
                  if es_candidata_mendoza(u)
-                 and u.rsplit("/", 1)[-1].startswith("departamento-")]
+                 and tipo_from_url(u) is not None]
     return candidatas
+
+
+def tipo_from_url(url):
+    """'departamento-en-alquiler-...' -> 'departamento'; 'casa-en-...' -> 'casa'."""
+    slug = url.rsplit("/", 1)[-1]
+    if slug.startswith("departamento-"):
+        return "departamento"
+    if slug.startswith("casa-"):
+        return "casa"
+    return None
 
 
 # ----------------------------------------------------------------- parseo
 
+def _ubicacion_por_breadcrumb(soup):
+    """Provincia y localidad desde el breadcrumb estructurado (schema.org
+    `BreadcrumbList`), no desde `.location-label`.
+
+    Se cambio por esto: `.location-label` se pinta en un paso de render
+    tardio (parece atado al widget de mapa de OpenStreetMap) y en la
+    practica, contra el sitio real, el 94% de las fichas volvian sin ese
+    elemento aunque el resto de la pagina ya estaba lista -- ni esperando
+    `networkidle` ni agregando esperas explicitas se resolvia de forma
+    confiable, porque a veces la pagina tiene actividad de red de fondo que
+    nunca termina de quedar quieta.
+
+    El breadcrumb es HTML estructurado (`itemtype="BreadcrumbList"`,
+    `property="position"`), pensado para SEO, asi que argenprop lo rellena
+    de forma consistente. El item de provincia es identificable sin
+    ambiguedad: es el unico cuyo href termina en "-arg"
+    (`/departamentos/alquiler/mendoza-arg`); el item de localidad es el que
+    sigue en `position`.
+    """
+    items = []
+    for li in soup.select('ol.breadcrumb li[property="itemListElement"]'):
+        span = li.select_one('span[property="name"]')
+        a = li.select_one("a")
+        meta = li.select_one('meta[property="position"]')
+        if not span or not meta or not meta.get("content"):
+            continue
+        items.append((int(meta["content"]), texto(span.get_text()),
+                      a.get("href") if a else None))
+    items.sort(key=lambda x: x[0])
+
+    provincia = localidad = None
+    for i, (pos, nombre, href) in enumerate(items):
+        if href and href.rstrip("/").endswith("-arg"):
+            provincia = nombre
+            if i + 1 < len(items):
+                localidad = items[i + 1][1]
+            break
+    return provincia, localidad
+
+
 def parse_ficha(html):
     """Ficha ya renderizada (post-JavaScript). Devuelve `None` si la
-    provincia real (`.location-label`) no es Mendoza -- resuelve la
-    ambiguedad de departamentos con nombre repetido en Cuyo.
+    provincia real (breadcrumb) no es Mendoza -- resuelve la ambiguedad de
+    departamentos con nombre repetido en Cuyo.
     """
     soup = BeautifulSoup(html, "lxml")
 
-    ubicacion_el = soup.select_one(".location-label")
-    ubicacion = texto(ubicacion_el.get_text() if ubicacion_el else None)
-    if not ubicacion or not ubicacion.rstrip().endswith("Mendoza"):
+    provincia, localidad = _ubicacion_por_breadcrumb(soup)
+    if provincia != "Mendoza":
         return None
 
-    partes = [p.strip() for p in ubicacion.split(",")]
-    provincia = partes[-1] if partes else None
-    localidad = partes[-2] if len(partes) >= 2 else None
-    direccion = ", ".join(partes[:-2]) if len(partes) > 2 else None
+    direccion_el = soup.select_one(".titlebar__address")
+    direccion = texto(direccion_el.get_text() if direccion_el else None)
 
     price_el = soup.select_one(".titlebar__price")
     moneda, precio = money(price_el.get_text() if price_el else None)

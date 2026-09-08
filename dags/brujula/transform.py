@@ -26,8 +26,8 @@ AMENITIES_BOOL = {
 }
 
 
-def to_row(card, detail, fecha_extraccion):
-    """card: una fila de `inmoclick.parse_listing_page`.
+def to_row(card, detail, tipo, fecha_extraccion):
+    """card: una fila de `inmoclick.parse_listing_page`. tipo: 'departamento' | 'casa'.
 
     detail: lo que devuelve `inmoclick.parse_detail_page`, o `None` si la
     ficha no se pudo bajar (la fila igual se arma, solo quedan en blanco los
@@ -48,7 +48,7 @@ def to_row(card, detail, fecha_extraccion):
     r["lat"] = card.get("lat")
     r["lng"] = card.get("lng")
 
-    r["tipo_propiedad"] = "departamento"
+    r["tipo_propiedad"] = tipo
     r["operacion"] = "alquiler"
 
     r["moneda"] = card.get("moneda")
@@ -113,8 +113,9 @@ AMENITIES_BOOL_ARGENPROP = {
 }
 
 
-def to_row_argenprop(ficha, listing_id, url, fecha_extraccion):
+def to_row_argenprop(ficha, listing_id, url, tipo, fecha_extraccion):
     """ficha: lo que devuelve `argenprop.parse_ficha` (ya confirmado Mendoza).
+    tipo: 'departamento' | 'casa' (de `argenprop.tipo_from_url`).
 
     A diferencia de `to_row`, aca no hay tarjeta de listado -- todo sale de
     una sola ficha ya renderizada. Lo que falta siempre porque argenprop no
@@ -134,7 +135,7 @@ def to_row_argenprop(ficha, listing_id, url, fecha_extraccion):
     r["provincia"] = ficha.get("provincia")
     r["direccion"] = ficha.get("direccion")
 
-    r["tipo_propiedad"] = "departamento"
+    r["tipo_propiedad"] = tipo
     r["operacion"] = "alquiler"
 
     r["moneda"] = ficha.get("moneda")
