@@ -17,3 +17,6 @@ data/processed/*
 
 # docker-compose.yaml oficial de Airflow: se descarga en cada máquina (Fase 0), no se versiona
 docker-compose.yaml
+
+# airflow.cfg generado por el contenedor: es propio de cada maquina
+config/

@@ -1,0 +1,34 @@
+# Ajustes del proyecto sobre el docker-compose.yaml oficial de Airflow.
+#
+# El archivo oficial no se versiona (cada uno lo baja con el comando del
+# README) y no se toca: Docker Compose junta solo este override con el
+# oficial cuando se corre `docker compose up` en esta carpeta.
+#
+# Hace dos cosas:
+#
+# 1. Monta data/ adentro del contenedor. El oficial monta dags, logs,
+#    config y plugins, pero no data, asi que sin esto el HTML crudo y el
+#    CSV final quedarian encerrados en el contenedor en vez de aparecer
+#    en el repo.
+# 2. Apaga los DAGs de ejemplo de Airflow, para que en la UI se vea solo
+#    el DAG del proyecto.
+
+x-brujula-data: &brujula-data
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/airflow/data
+  environment:
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+
+services:
+  airflow-apiserver:
+    <<: *brujula-data
+  airflow-scheduler:
+    <<: *brujula-data
+  airflow-dag-processor:
+    <<: *brujula-data
+  airflow-worker:
+    <<: *brujula-data
+  airflow-triggerer:
+    <<: *brujula-data
+  airflow-init:
+    <<: *brujula-data

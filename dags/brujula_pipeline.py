@@ -2,19 +2,32 @@
 Brujula Inmobiliaria - Pipeline de Entrega 1 (Ingenieria de datos)
 
 Segmento: departamentos en alquiler en Mendoza.
-Fuente: Inmoclick (https://inmoclick.com/departamentos-en-alquiler-en-mendoza).
+Fuentes: Inmoclick (inmoclick.com) e InmoUP (inmoup.com.ar).
 
 Cinco tareas, capa bronce (data/raw) separada de capa plata (data/processed):
 
     extract_listings -> parse_raw -> transform_clean -> quality_check -> export_csv
 
-Esqueleto: cada tarea tiene un TODO. No hay logica real todavia -
-se completa en las Fases 1 y 2 de la guia de pasos.
+La logica real vive en el paquete dags/brujula/, no aca: asi se puede
+probar desde una terminal con `python -m brujula.pipeline` sin levantar
+Airflow, y el DAG queda como lo que es, el orden de las tareas.
+
+Parametros de la corrida (se editan al dispararla desde la UI):
+  max_paginas -> None baja el listado completo de cada portal
+                 (~2.400 avisos, cerca de una hora); un numero chico
+                 sirve para una prueba rapida.
+  fuentes     -> None usa todos los portales; ["inmoup"] usa solo uno.
+  fecha       -> AAAAMMDD, elige la carpeta de la capa bronce. None usa
+                 hoy en UTC (el contenedor no corre en hora argentina).
+                 Poner una fecha ya scrapeada reprocesa sin volver a
+                 pedirle nada a los portales.
 """
 
 from datetime import datetime
 
 from airflow.decorators import dag, task
+
+from brujula import export, extract, parse, quality, transform
 
 
 @dag(
@@ -23,89 +36,67 @@ from airflow.decorators import dag, task
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["brujula-inmobiliaria", "entrega-1"],
+    params={"max_paginas": None, "fuentes": None, "fecha": None},
 )
 def brujula_inmobiliaria_pipeline():
 
     @task
-    def extract_listings() -> str:
+    def extract_listings(params: dict = None) -> str:
         """
         Capa bronce.
-        Recorre las paginas de resultados de "departamentos en alquiler en
-        Mendoza" en Inmoclick y guarda el HTML crudo de cada aviso, sin
-        modificarlo, en data/raw/<fecha>/.
-
-        TODO:
-        - Pedir las paginas de resultados (respetar robots.txt, pausa entre pedidos).
-        - Guardar cada HTML de aviso en data/raw/AAAAMMDD/<id>.html.
-        - Devolver la carpeta de esta corrida para que la use parse_raw.
+        Baja las paginas de resultados y la ficha de cada aviso de cada
+        portal, y guarda el HTML tal como llega en
+        data/raw/AAAAMMDD/<fuente>/. No modifica nada: si mas adelante hay
+        que corregir la transformacion, no se vuelve a scrapear.
         """
-        run_folder = "data/raw/TODO_fecha"
-        return run_folder
-
-    @task
-    def parse_raw(run_folder: str) -> list:
-        """
-        Recorre el HTML guardado por extract_listings y extrae los campos de
-        cada aviso a un registro: precio, direccion, localidad, m2 cubiertos
-        y totales, ambientes, dormitorios, banos, tipo de propiedad,
-        anunciante, descripcion, y el ID de la URL (candidato a clave).
-
-        TODO:
-        - Parsear cada archivo HTML de run_folder con BeautifulSoup.
-        - Devolver la lista de registros (uno por aviso).
-        """
-        records = []
-        return records
+        params = params or {}
+        return extract.extract_listings(
+            max_paginas=params.get("max_paginas"),
+            fuentes=params.get("fuentes"),
+            fecha=params.get("fecha"),
+        )
 
     @task
-    def transform_clean(records: list) -> str:
+    def parse_raw(run_folder: str, params: dict = None) -> str:
         """
-        Capa plata (en construccion).
-        Tipa columnas, define la clave primaria, calcula precio_m2.
+        Recorre el HTML guardado de cada portal y arma un registro por
+        aviso. Cada fuente sabe leer lo suyo (tabla HTML en Inmoclick,
+        JSON-LD en InmoUP) y devuelve el mismo esquema de columnas.
 
-        TODO:
-        - Cargar records en un DataFrame de pandas.
-        - Tipar precio a numerico.
-        - Definir y verificar la clave primaria (ID de la URL del aviso).
-        - Calcular precio_m2 = precio / superficie.
-        - Guardar el DataFrame intermedio (o pasarlo a la siguiente tarea).
+        Devuelve la ruta del archivo con los registros, no los registros:
+        son miles, y pasarlos por XCom cargaria varios MB en la base de
+        metadatos de Airflow.
         """
-        clean_path = "data/processed/TODO_clean.parquet"
-        return clean_path
+        return parse.parse_raw(run_folder, fuentes=(params or {}).get("fuentes"))
+
+    @task
+    def transform_clean(registros_path: str, run_folder: str) -> str:
+        """
+        Capa plata.
+        Tipa las columnas, arma la clave primaria (fuente:usr_id-prp_id),
+        marca el mismo inmueble publicado en dos portales y calcula la
+        columna objetivo precio_m2.
+        """
+        return transform.transform_clean(registros_path, run_folder=run_folder)
 
     @task
     def quality_check(clean_path: str) -> str:
         """
-        Corre los seis chequeos de calidad de la catedra sobre el DataFrame
-        final y guarda un reporte. Si algo falla, que quede registrado, no
-        oculto.
-
-        TODO (sobre el DataFrame df):
-        - df["clave"].is_unique
-        - len(df)
-        - df.shape
-        - df.dtypes.value_counts()
-        - df.isna().mean().sort_values(ascending=False)
-        - df.columns[df.isna().all()]
+        Corre los seis chequeos de calidad de la catedra y guarda el reporte.
+        Si algo falla queda registrado, no oculto.
         """
-        report_path = "data/processed/quality_report.txt"
-        return report_path
+        return quality.quality_check(clean_path)
 
     @task
-    def export_csv(clean_path: str, report_path: str) -> None:
+    def export_csv(clean_path: str, report_path: str) -> str:
         """
-        Capa plata final.
-        Escribe el CSV definitivo en data/processed/ - el archivo que se abre
-        y se defiende en la Entrega 1.
-
-        TODO:
-        - Escribir data/processed/brujula_inmobiliaria_alquiler_mendoza.csv
+        Capa plata final: escribe el CSV definitivo en data/processed/.
         """
-        pass
+        return export.export_csv(clean_path, report_path)
 
     run_folder = extract_listings()
-    records = parse_raw(run_folder)
-    clean_path = transform_clean(records)
+    registros_path = parse_raw(run_folder)
+    clean_path = transform_clean(registros_path, run_folder)
     report_path = quality_check(clean_path)
     export_csv(clean_path, report_path)
 
