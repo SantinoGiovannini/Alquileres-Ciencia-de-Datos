@@ -42,8 +42,8 @@ def main() -> None:
     )
     registros_path = parse.parse_raw(run_folder, fuentes=args.fuentes)
     clean_path = transform.transform_clean(registros_path, run_folder=run_folder)
-    report_path = quality.quality_check(clean_path)
-    csv_path = export.export_csv(clean_path, report_path)
+    report_path = quality.quality_check(clean_path, run_folder=run_folder)
+    csv_path = export.export_csv(clean_path, report_path, run_folder=run_folder)
 
     print("\n" + "=" * 60)
     print("bronce :", run_folder)

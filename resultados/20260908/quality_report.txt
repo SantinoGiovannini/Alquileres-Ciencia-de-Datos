@@ -1,0 +1,74 @@
+REPORTE DE CALIDAD - Brujula Inmobiliaria
+origen: /opt/airflow/data/processed/_intermedio_clean.csv
+
+1) clave primaria unica (df['clave'].is_unique)
+   True
+
+2) cantidad de filas (len(df))
+   1673   [objetivo de la catedra: > 1000]
+
+3) forma del dataset (df.shape)
+   (1673, 39)   [objetivo: 5+ columnas utiles]
+
+4) mezcla de tipos (df.dtypes.value_counts())
+   str: 16
+   float64: 12
+   boolean: 6
+   int64: 2
+   datetime64[us]: 2
+   string: 1
+
+5) proporcion de nulos por columna (df.isna().mean())
+   motivo_sospecha              0.976
+   zona_escolar                 0.724
+   piscina                      0.641
+   plantas                      0.609
+   id_publicado                 0.579
+   tipo_construccion            0.579
+   amoblado                     0.569
+   antiguedad                   0.467
+   ambientes                    0.459
+   fecha_publicacion            0.421
+   valor_expensas               0.396
+   tiene_expensas               0.354
+   acepta_mascotas              0.202
+   cochera                      0.082
+   longitud                     0.068
+   latitud                      0.068
+   estado_conservacion          0.057
+   precio_m2                    0.041
+   superficie_total_m2          0.039
+   superficie_cubierta_m2       0.025
+   dormitorios                  0.023
+   moneda                       0.003
+   precio                       0.003
+   direccion                    0.001
+   banos                        0.001
+   descripcion                  0.001
+   prp_id                       0.000
+   url                          0.000
+   fuente                       0.000
+   usr_id                       0.000
+   localidad                    0.000
+   condicion                    0.000
+   tipo_anunciante              0.000
+   es_dueno_directo             0.000
+   publicador                   0.000
+   provincia                    0.000
+   clave                        0.000
+   fecha_scraping               0.000
+   posible_duplicado_cruzado    0.000
+
+6) columnas 100% nulas (df.columns[df.isna().all()])
+   ninguna
+
+OBSERVACIONES
+   filas por fuente:
+      inmoup       969
+      inmoclick    704
+   avisos en pesos: 1523 | en dolares: 145
+   marcados como el mismo inmueble en dos portales: 189 (no se borran: la unidad de analisis es el aviso)
+   filas sin precio_m2: 68 (sin precio publicado o sin superficie cubierta)
+   avisos con valores sospechosos: 40 (se marcan, no se borran)
+      superficie fuera de rango                     34
+      precio parece de venta, no de alquiler        6

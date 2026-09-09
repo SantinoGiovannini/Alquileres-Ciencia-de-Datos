@@ -80,25 +80,27 @@ def brujula_inmobiliaria_pipeline():
         return transform.transform_clean(registros_path, run_folder=run_folder)
 
     @task
-    def quality_check(clean_path: str) -> str:
+    def quality_check(clean_path: str, run_folder: str) -> str:
         """
-        Corre los seis chequeos de calidad de la catedra y guarda el reporte.
-        Si algo falla queda registrado, no oculto.
+        Corre los seis chequeos de calidad de la catedra y guarda el
+        reporte en resultados/<fecha>/. Si algo falla queda registrado,
+        no oculto.
         """
-        return quality.quality_check(clean_path)
+        return quality.quality_check(clean_path, run_folder=run_folder)
 
     @task
-    def export_csv(clean_path: str, report_path: str) -> str:
+    def export_csv(clean_path: str, report_path: str, run_folder: str) -> str:
         """
-        Capa plata final: escribe el CSV definitivo en data/processed/.
+        Capa plata final: escribe el CSV definitivo en resultados/<fecha>/,
+        al lado del reporte de calidad de esa misma corrida.
         """
-        return export.export_csv(clean_path, report_path)
+        return export.export_csv(clean_path, report_path, run_folder=run_folder)
 
     run_folder = extract_listings()
     registros_path = parse_raw(run_folder)
     clean_path = transform_clean(registros_path, run_folder)
-    report_path = quality_check(clean_path)
-    export_csv(clean_path, report_path)
+    report_path = quality_check(clean_path, run_folder)
+    export_csv(clean_path, report_path, run_folder)
 
 
 brujula_inmobiliaria_pipeline()

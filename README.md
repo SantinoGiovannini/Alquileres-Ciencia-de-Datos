@@ -60,8 +60,8 @@ los dos portales que si estan, el dataset ya supera las 1.000 filas.
 
 ## Arquitectura del pipeline
 
-Cinco tareas de Airflow, capa bronce (`data/raw/`, HTML crudo tal como
-llega) separada de capa plata (`data/processed/`, el CSV final):
+Cinco tareas de Airflow, con la capa bronce (`data/raw/`, HTML crudo tal
+como llega) separada de la capa plata (el CSV final en `resultados/`):
 
     extract_listings -> parse_raw -> transform_clean -> quality_check -> export_csv
 
@@ -85,6 +85,18 @@ toca.
 La logica vive en el paquete `dags/brujula/` y no adentro del DAG, para
 poder probarla desde una terminal sin levantar Airflow. Esta dentro de
 `dags/` porque Airflow monta esa carpeta y la agrega al `sys.path`.
+
+## Donde queda cada cosa
+
+    data/raw/AAAAMMDD/<fuente>/   HTML crudo, capa bronce      (no se versiona, ~1,7 GB)
+    data/processed/               intermedios de trabajo        (no se versiona)
+    resultados/AAAAMMDD/          CSV final + reporte de calidad (SI se versiona)
+
+`resultados/` es la excepcion a la regla de "los datos no van al repo": son
+los dos archivos que se entregan y se defienden, pesan un par de MB, y asi
+el resto del equipo y la catedra los pueden abrir sin levantar Airflow ni
+volver a scrapear. Una carpeta por fecha de scrapeo, para poder comparar
+como se movio el mercado entre corridas sin pisar la anterior.
 
 ## Como levantar el entorno
 

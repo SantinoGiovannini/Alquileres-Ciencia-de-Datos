@@ -2,7 +2,7 @@
 
 import logging
 
-from brujula.config import CSV_FINAL
+from brujula.config import NOMBRE_CSV, carpeta_resultados
 from brujula.transform import leer_intermedio
 
 log = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ ORDEN = [
 ]
 
 
-def export_csv(clean_path: str, report_path: str) -> str:
+def export_csv(clean_path: str, report_path: str, run_folder: str = None) -> str:
     df = leer_intermedio(clean_path)
 
     columnas = [c for c in ORDEN if c in df.columns]
@@ -35,10 +35,11 @@ def export_csv(clean_path: str, report_path: str) -> str:
         log.info("columnas fuera del orden previsto, van al final: %s", sobrantes)
 
     df = df[columnas + sobrantes]
-    CSV_FINAL.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(CSV_FINAL, index=False, encoding="utf-8")
+    csv_final = carpeta_resultados(run_folder) / NOMBRE_CSV
+    csv_final.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(csv_final, index=False, encoding="utf-8")
     log.info(
         "CSV final: %s (%s filas x %s columnas). Calidad en %s",
-        CSV_FINAL, len(df), df.shape[1], report_path,
+        csv_final, len(df), df.shape[1], report_path,
     )
-    return str(CSV_FINAL)
+    return str(csv_final)

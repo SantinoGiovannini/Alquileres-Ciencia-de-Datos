@@ -6,16 +6,19 @@
 #
 # Hace dos cosas:
 #
-# 1. Monta data/ adentro del contenedor. El oficial monta dags, logs,
-#    config y plugins, pero no data, asi que sin esto el HTML crudo y el
-#    CSV final quedarian encerrados en el contenedor en vez de aparecer
-#    en el repo.
+# 1. Monta las carpetas donde el pipeline escribe: data/ (capa bronce e
+#    intermedios) y resultados/ (el CSV y el reporte de calidad). El
+#    compose oficial monta dags, logs, config y plugins, pero ninguna de
+#    estas dos: sin el montaje, las tareas escriben adentro del contenedor
+#    y los archivos nunca aparecen en el repo. Pasa en silencio, porque la
+#    tarea igual termina en verde.
 # 2. Apaga los DAGs de ejemplo de Airflow, para que en la UI se vea solo
 #    el DAG del proyecto.
 
 x-brujula-data: &brujula-data
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/airflow/data
+    - ${AIRFLOW_PROJ_DIR:-.}/resultados:/opt/airflow/resultados
   environment:
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
 

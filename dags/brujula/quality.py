@@ -7,15 +7,13 @@ dataset, no esconderlo.
 
 import logging
 
-from brujula.config import PROCESSED_DIR
+from brujula.config import NOMBRE_REPORTE, carpeta_resultados
 from brujula.transform import leer_intermedio
 
 log = logging.getLogger(__name__)
 
-REPORTE = PROCESSED_DIR / "quality_report.txt"
 
-
-def quality_check(clean_path: str) -> str:
+def quality_check(clean_path: str, run_folder: str = None) -> str:
     df = leer_intermedio(clean_path)
 
     clave_unica = bool(df["clave"].is_unique)
@@ -68,7 +66,8 @@ def quality_check(clean_path: str) -> str:
     if filas <= 1000:
         log.warning("el dataset tiene %s filas, por debajo de las 1000 pedidas", filas)
 
-    REPORTE.parent.mkdir(parents=True, exist_ok=True)
-    REPORTE.write_text("\n".join(lineas), encoding="utf-8")
-    log.info("reporte de calidad escrito en %s", REPORTE)
-    return str(REPORTE)
+    reporte = carpeta_resultados(run_folder) / NOMBRE_REPORTE
+    reporte.parent.mkdir(parents=True, exist_ok=True)
+    reporte.write_text("\n".join(lineas), encoding="utf-8")
+    log.info("reporte de calidad escrito en %s", reporte)
+    return str(reporte)
