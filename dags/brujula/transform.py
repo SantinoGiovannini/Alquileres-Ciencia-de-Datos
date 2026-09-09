@@ -1,4 +1,4 @@
-"""Del HTML crudo (inmoclick o argenprop) al esquema canonico.
+"""Del HTML crudo (inmoclick, argenprop o inmoup) al esquema canonico.
 
 `precio_m2` no se calcula aca: se hace en `transform_clean` del DAG, sobre
 el DataFrame ya consolidado -- es una cuenta vectorizada, no algo que
@@ -161,4 +161,66 @@ def to_row_argenprop(ficha, listing_id, url, tipo, fecha_extraccion):
 
     r["fecha_extraccion"] = fecha_extraccion
     r["fuente"] = "argenprop"
+    return r
+
+
+def to_row_inmoup(ficha, listing_id, url, tipo, fecha_extraccion):
+    """ficha: lo que devuelve `inmoup.parse_ficha` (ya confirmado Mendoza).
+    tipo: 'departamento' | 'casa' (de `inmoup.tipo_from_url`).
+
+    A diferencia de argenprop, las etiquetas de `additionalProperty` en el
+    JSON-LD de inmoup coinciden con las que ya se verificaron contra
+    Inmoclick ("Piscina", "Zona Escolar", "Amoblado/a", etc.) -- se reusa
+    `AMENITIES_BOOL` en vez de armar un diccionario best-effort aparte.
+    """
+    from brujula.inmoup import bool_si as bool_si_iu
+    from brujula.inmoup import entero as entero_iu
+
+    r = {c: None for c in schema.COLUMNS}
+    kv = ficha.get("kv", {})
+
+    r["listing_id"] = f"inmoup-{listing_id}"
+    r["listing_url"] = url
+
+    r["localidad"] = ficha.get("localidad")
+    r["provincia"] = ficha.get("provincia")
+    r["direccion"] = ficha.get("direccion")
+    r["lat"] = ficha.get("lat")
+    r["lng"] = ficha.get("lng")
+
+    r["tipo_propiedad"] = tipo
+    r["operacion"] = "alquiler"
+
+    r["moneda"] = ficha.get("moneda")
+    r["precio"] = ficha.get("precio")
+
+    r["dormitorios"] = entero_iu(kv.get("Dormitorios"))
+    r["banios"] = entero_iu(kv.get("Baños"))
+
+    ambientes_texto = kv.get("Cantidad de Ambientes")
+    r["ambientes_texto"] = ambientes_texto
+    r["ambientes"] = entero_iu(ambientes_texto)
+
+    r["plantas"] = entero_iu(kv.get("Plantas"))
+    r["superficie_total_m2"] = entero_iu(kv.get("Superficie Total m2"))
+    r["superficie_cubierta_m2"] = entero_iu(kv.get("Superficie Cubierta m2"))
+
+    antiguedad_texto = kv.get("Antigüedad")
+    r["antiguedad_texto"] = antiguedad_texto
+    r["antiguedad_anios"] = entero_iu(antiguedad_texto)
+
+    r["cochera"] = kv.get("Cochera")
+
+    for etiqueta, columna in AMENITIES_BOOL.items():
+        if etiqueta in kv:
+            r[columna] = bool_si_iu(kv.get(etiqueta))
+
+    r["estado_conservacion"] = kv.get("Estado de Conservación")
+
+    r["descripcion"] = ficha.get("descripcion")
+    r["publicado_por"] = ficha.get("publicado_por")
+
+    r["fecha_publicacion"] = ficha.get("fecha_publicacion")
+    r["fecha_extraccion"] = fecha_extraccion
+    r["fuente"] = "inmoup"
     return r

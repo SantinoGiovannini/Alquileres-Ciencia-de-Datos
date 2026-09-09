@@ -2,15 +2,16 @@
 Esquema canonico de Brujula Inmobiliaria (Entrega 1).
 
 Unidad de observacion: un aviso de alquiler (departamento o casa) publicado
-en Inmoclick o argenprop para la provincia de Mendoza, en el momento del
-scraping. Clave primaria: `listing_id` (el `kid` interno de Inmoclick, o
-`argenprop-<id>` para los avisos de esa fuente -- el prefijo evita
-colisiones entre las dos, y dentro de cada una es unico por aviso).
+en Inmoclick, argenprop o inmoup para la provincia de Mendoza, en el
+momento del scraping. Clave primaria: `listing_id` -- el `kid` interno de
+Inmoclick, `argenprop-<id>`, o `inmoup-<id-agente>-<id-interno>` segun la
+fuente (el prefijo evita colisiones entre las tres, y dentro de cada una
+es unico por aviso).
 
-Por que dos tipos de propiedad y dos fuentes: Inmoclick solo (aun sumando
-departamentos y casas) da ~980 avisos, por debajo del piso de 1.000 filas
-del criterio "Volumen suficiente". argenprop corre siempre, no solo como
-respaldo ante una caida, para llegar comodo a ese piso (ver el docstring de
+Por que tres fuentes: Inmoclick solo (aun sumando departamentos y casas) da
+~830 avisos, por debajo del piso de 1.000 filas del criterio "Volumen
+suficiente". argenprop e inmoup corren siempre, no solo como respaldo ante
+una caida, para llegar a ese piso (ver el docstring de
 `dags/brujula_pipeline.py`).
 
 `precio_m2` es la columna objetivo de la propuesta (precio / superficie
@@ -18,15 +19,16 @@ cubierta): el modelo de U3 es una regresion sobre esta columna, y el
 residuo es lo que clasifica un aviso en sobrevalorado / de mercado /
 oportunidad.
 
-Que quedo afuera y por que:
+Sobre `fecha_publicacion`: Inmoclick y argenprop no la exponen en ningun
+lado (se busco `datePosted` y variantes, no esta). inmoup si la trae en su
+JSON-LD -- se guarda cuando la fuente es inmoup, queda nula para las otras
+dos. `fecha_extraccion` (cuando bajo el dato el pipeline) esta siempre,
+para las tres fuentes, y no es lo mismo que `fecha_publicacion`.
 
-  * `fecha_publicacion`. Inmoclick no la expone en ningun lado del listado
-    ni de la ficha. Se guarda `fecha_extraccion` -- la fecha en que el
-    pipeline bajo el dato -- que no es lo mismo.
-  * El texto de la descripcion de la ficha individual. Inmoclick intercala
-    ahi spans ocultos con frases anti-scraping ("COPIADO DE
-    INMOCLICK.COM.AR"). `descripcion` sale siempre de la tarjeta del
-    listado, que no tiene ese problema (ver docstring de inmoclick.py).
+Por que la descripcion no sale de la ficha en Inmoclick: intercala ahi
+spans ocultos con frases anti-scraping ("COPIADO DE INMOCLICK.COM.AR").
+`descripcion` sale siempre de la tarjeta del listado para esa fuente, que
+no tiene ese problema (ver docstring de inmoclick.py).
 """
 
 IDENTIDAD = [
@@ -60,7 +62,7 @@ CONTENIDO = [
 ]
 
 METADATA = [
-    "fecha_extraccion", "fuente",
+    "fecha_publicacion", "fecha_extraccion", "fuente",
 ]
 
 COLUMNS = IDENTIDAD + UBICACION + TIPO + ECONOMICO + CARACTERISTICAS + CONTENIDO + METADATA

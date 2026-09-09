@@ -14,21 +14,20 @@ en `Documentacion/Propuestas_Proyecto_Integrador_Inmobiliario.docx`.
 - **Fuente principal:** Inmoclick, https://inmoclick.com/departamentos-en-alquiler-en-mendoza
   y https://inmoclick.com/casas-en-alquiler-en-mendoza (robots.txt sin
   restricciones, HTML estatico, ~830 avisos verificados entre los dos tipos).
-- **Fuente adicional real:** argenprop.com -- no es otro motor sobre
-  Inmoclick, es un sitio con HTML y estructura completamente distintos, y
-  **corre siempre** (no solo si Inmoclick cae). Ver "Por que dos fuentes"
-  mas abajo.
+- **Fuentes adicionales reales:** argenprop.com e inmoup.com.ar -- no son
+  otro motor sobre Inmoclick, son sitios con HTML y estructura completamente
+  distintos, y **corren siempre** (no solo si Inmoclick cae). Ver "Por que
+  tres fuentes" mas abajo.
 - **Segmento:** departamentos y casas en alquiler, Mendoza.
 - **Unidad de analisis:** un aviso publicado. "Una fila es un aviso de
-  alquiler -- departamento o casa -- publicado en Inmoclick o en argenprop,
-  para la provincia de Mendoza, en el momento del scraping."
+  alquiler -- departamento o casa -- publicado en Inmoclick, argenprop o
+  inmoup, para la provincia de Mendoza, en el momento del scraping."
 - **Columna objetivo:** `precio_m2` (precio / superficie cubierta),
   calculada en `transform_clean` sobre el DataFrame consolidado -- no
-  depende de que la fuente la traiga, asi que es consistente entre
-  Inmoclick y argenprop.
-- **Clave primaria:** `listing_id` (el `kid` interno de Inmoclick, o
-  `argenprop-<id>` para los avisos de respaldo -- unico dentro de cada
-  fuente, y el prefijo evita colisiones entre las dos).
+  depende de que la fuente la traiga, asi que es consistente entre las tres.
+- **Clave primaria:** `listing_id` (el `kid` interno de Inmoclick,
+  `argenprop-<id>`, o `inmoup-<id-agente>-<id-interno>` -- unico dentro de
+  cada fuente, y el prefijo evita colisiones entre las tres).
 
 ## Arquitectura del pipeline
 
@@ -36,10 +35,10 @@ Modelo medallon, capa bronce (`data/raw/<fecha>/`, HTML crudo tal como
 llega) separada de capa plata (`data/processed/`, el CSV final):
 
 ```
-wait_for_source -> check_source ---> extract_listings -> parse_raw ------+
-                               |--> extract_listings_argenprop           |
-                               |        -> parse_raw_argenprop ----------+--> transform_clean -> quality_check -> export_csv
+wait_for_source -> check_source ---> extract_listings -> parse_raw --------+
                                `--> use_frozen_snapshot -----------------+
+extract_listings_argenprop -> parse_raw_argenprop -----------------------+--> transform_clean -> quality_check -> export_csv
+extract_listings_inmoup -> parse_raw_inmoup ----------------------------/
 ```
 
 | Tarea | Que hace |
@@ -50,6 +49,8 @@ wait_for_source -> check_source ---> extract_listings -> parse_raw ------+
 | `parse_raw` | Recorre el bronce de Inmoclick (sin red) y arma un registro por aviso, para ambos tipos. |
 | `extract_listings_argenprop` | **Bronce, argenprop.** Corre siempre, no solo si Inmoclick cae. Descubre por sitemap y baja con Playwright (ver por que abajo). |
 | `parse_raw_argenprop` | Parsea el bronce de argenprop, descarta lo que no sea de Mendoza. |
+| `extract_listings_inmoup` | **Bronce, inmoup.** Corre siempre. Descubre por sitemap y baja con `requests` -- sin Playwright, ver por que abajo. |
+| `parse_raw_inmoup` | Lee el JSON-LD de cada ficha, descarta lo que no sea de Mendoza. |
 | `use_frozen_snapshot` | Ultimo recurso para Inmoclick: la semilla versionada en `data/frozen/semilla.csv`. |
 | `transform_clean` | **Plata.** Junta lo que aporto cada fuente, tipa columnas, dedupe por `listing_id`, calcula `precio_m2`. |
 | `quality_check` | Los siete criterios del Kit de arranque (ver abajo). Reporta, no bloquea -- salvo dataset vacio. |
@@ -59,14 +60,17 @@ El codigo de scraping/parseo vive en `dags/brujula/` (paquete al lado del
 DAG, no en un `include/` -- el `docker-compose.yaml` oficial solo monta
 `dags/`, `logs/`, `plugins/`, `config/`).
 
-## Por que dos fuentes (y por que argenprop corre siempre)
+## Por que tres fuentes (y por que las dos adicionales corren siempre)
 
 Inmoclick solo, aunque se sumen departamentos y casas, da ~830 avisos --
 por debajo del piso de **1.000 filas** que pide el criterio "Volumen
 suficiente" del Kit de arranque de la catedra. El kit mismo dice que hacer
-en ese caso: *"combinar con otra fuente"*. Por eso `extract_listings_argenprop`
-no depende de que Inmoclick falle: corre siempre, en paralelo, y sus filas
-se suman a las de Inmoclick en `transform_clean`.
+en ese caso: *"combinar con otra fuente"* (en plural, en este caso: dos).
+Por eso ni `extract_listings_argenprop` ni `extract_listings_inmoup`
+dependen de que Inmoclick falle: corren siempre, en paralelo, y sus filas
+se suman a las de Inmoclick en `transform_clean`. Con las tres fuentes el
+dataset llega a **1.188 avisos** en una corrida completa real -- ver
+"Nota sobre esta entrega" mas abajo.
 
 El respaldo ante una fuente caida sigue existiendo (`check_source` ->
 `use_frozen_snapshot` si Inmoclick no responde), pero es una decision
@@ -136,11 +140,51 @@ una sola ficha real al construir el parser y no traia amenities, asi que
 las etiquetas se completaron por el nombre esperable de la columna sin
 confirmar el texto exacto. Tampoco hay `prp_id`/`usr_id`/`lat`/`lng`.
 
-**Fuente de emergencia (Properati/Kaggle) sin implementar.** La propuesta
-la menciona como tercer nivel. El slug correcto del dataset es
-`kaggle.com/datasets/properati-data/properties` (no `properati-data` a
-secas, que devuelve 404) -- si hace falta esa tercera rama, es el punto de
-partida.
+## Fuente adicional real: inmoup.com.ar
+
+**No necesita Playwright.** A diferencia de argenprop, la ficha de inmoup
+trae un bloque `<script type="application/ld+json">` (schema.org
+`RealEstateListing`) ya presente en el HTML server-side -- precio, moneda,
+direccion, provincia, coordenadas y hasta `datePosted` (fecha de
+publicacion real, que ni Inmoclick ni argenprop exponen). Se verifico
+bajando una ficha con `requests` liso: todo el JSON-LD ya estaba ahi. Solo
+la pagina de *busqueda* de inmoup es client-side (Next.js) -- por eso el
+descubrimiento tambien es por sitemap, no por esa pagina.
+
+**Descubrimiento por sitemap.** El `robots.txt` de inmoup permite
+`/sitemap/sitemap-*.xml`. Los sitemaps `sitemap-inmuebles-por-provincias-{1..4}.xml`
+tienen ~18.000 fichas de todo el pais -- se prefiltra por nombre de
+departamento de Mendoza en el slug (mismo criterio y misma ambiguedad con
+"San Martin"/"Rivadavia" que argenprop) y se confirma la provincia real
+leyendo `address.addressRegion` del JSON-LD, sin heuristicas de HTML.
+
+**Sin problemas de bloqueo, a diferencia de argenprop.** Se probaron 495
+fichas de punta a punta con pausas moderadas (0,4s): 0 errores, 0
+bloqueos, 488 confirmadas de Mendoza. La ausencia de JavaScript en el
+lado del scraper (una llamada HTTP simple, no un navegador completo)
+parece ser la diferencia -- no hay certeza de la causa exacta, pero el
+contraste con argenprop (mismo tipo de pausa, mismo volumen, bloqueo
+persistente) es marcado.
+
+**Que falta frente a Inmoclick.** `barrio` no viene separado de
+`localidad` en el JSON-LD (solo hay `addressLocality`). El resto de los
+campos (dormitorios, banios, superficie, amenities, antiguedad) vienen
+igual de bien o mejor que Inmoclick, con las mismas etiquetas en espanol.
+
+## Fuente de emergencia (Properati/Kaggle) sin implementar
+
+La propuesta la menciona como tercer nivel. El slug correcto del dataset
+es `kaggle.com/datasets/properati-data/properties` (no `properati-data` a
+secas, que devuelve 404) -- si hace falta esa cuarta fuente, es el punto
+de partida.
+
+## ZonaProp, evaluada y descartada
+
+Esta detras de Cloudflare con un desafio JS real -- se detecto pidiendo su
+sitemap con `curl` liso, que devolvio una pagina "Just a moment..." en vez
+del XML (mismo tipo de proteccion que `sofifa.com` en el ejemplo canonico
+de la catedra). No se insistio: pasar ese desafio de forma automatizada
+cruza a evasion de deteccion, no scraping educado.
 
 ## Como levantar el entorno
 
@@ -183,16 +227,16 @@ docker compose up
 > aplica las dos ediciones de arriba.
 
 **Nota sobre esta entrega:** el pipeline completo (Inmoclick departamentos +
-casas + argenprop en paralelo) se corrio de punta a punta en modo `full`
-contra los sitios reales, reusando un entorno Airflow 3.3 ya probado de la
-catedra (misma imagen `apache/airflow:3.3.1` que resuelve hoy el
-`docker-compose.yaml` oficial). Resultado real: **888 avisos** (832 de
-Inmoclick: 635 departamentos + 197 casas; 56 de argenprop: 44 + 12), 45
-columnas, `precio_m2` calculado, los siete criterios verificados -- por
-debajo del piso de 1.000 filas por el bloqueo de WAF de argenprop descripto
-arriba, no por falta de intento. El `Dockerfile` de *este* repo especifico
-(con Chromium) todavia no se construyo con `docker compose build` en un
-entorno limpio desde cero -- hacerlo antes de dar la Fase 1 por cerrada.
+casas + argenprop + inmoup, las tres fuentes adicionales en paralelo) se
+corrio de punta a punta en modo `full` contra los sitios reales, reusando
+un entorno Airflow 3.3 ya probado de la catedra (misma imagen
+`apache/airflow:3.3.1` que resuelve hoy el `docker-compose.yaml` oficial).
+Resultado real: **1.188 avisos** (660 de Inmoclick, 79 de argenprop, 449 de
+inmoup), 46 columnas, `precio_m2` calculado, los siete criterios
+verificados -- **supera el piso de 1.000 filas**. El `Dockerfile` de *este*
+repo especifico (con Chromium) todavia no se construyo con
+`docker compose build` en un entorno limpio desde cero -- hacerlo antes de
+dar la Fase 1 por cerrada.
 
 ## Lo que hay que saber explicar en la defensa
 
@@ -212,7 +256,7 @@ corrida chica.
 
 | Parametro | Valores | Que hace |
 |---|---|---|
-| `mode` | `subset` / `full` | `subset`: la primera pagina de cada tipo en Inmoclick (~48 avisos) + ~12 fichas de argenprop. `full`: ~830 avisos de Inmoclick (departamentos + casas) mas hasta 220 fichas de argenprop. |
+| `mode` | `subset` / `full` | `subset`: la primera pagina de cada tipo en Inmoclick (~48 avisos) + ~12 fichas de argenprop + ~12 de inmoup. `full`: ~830 avisos de Inmoclick mas hasta 220 fichas de argenprop y hasta 500 de inmoup. |
 | `engine` | `auto` / `http` / `browser` | Motor de descarga de Inmoclick. `auto` prueba HTTP y cae a navegador si el sitio empieza a filtrar (no deberia hacer falta, ver `dags/brujula/inmoclick.py`). |
 
 ## Probar
@@ -224,8 +268,8 @@ docker compose exec airflow-scheduler airflow dags test brujula_inmobiliaria_pip
 ## Estado
 
 - [x] Fase 0 - estructura del repo y DAG esqueleto
-- [x] Fase 1 - extraccion real (extract_listings, parse_raw) -- validado con datos reales de Inmoclick + argenprop
+- [x] Fase 1 - extraccion real (extract_listings, parse_raw) -- validado con datos reales de Inmoclick + argenprop + inmoup
 - [x] Fase 2 - transformacion y calidad (transform_clean, quality_check) -- precio_m2 y los siete criterios, validado
-- [x] Fase 3 - corrida completa en verde (888 avisos), visible en el historial de Airflow -- pendiente reproducirla con el `docker compose` de este repo especifico (se corrio en un entorno Airflow 3.3 equivalente)
+- [x] Fase 3 - corrida completa en verde (1.188 avisos, supera el piso de 1.000), visible en el historial de Airflow -- pendiente reproducirla con el `docker compose` de este repo especifico (se corrio en un entorno Airflow 3.3 equivalente)
 - [ ] Fase 4 - documentacion final
 - [ ] Fase 5 - ensayo cronometrado

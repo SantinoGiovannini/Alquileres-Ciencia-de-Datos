@@ -3,33 +3,37 @@ Brujula Inmobiliaria -- Pipeline de Entrega 1 (Ingenieria de datos)
 
 Segmento: departamentos y casas en alquiler en Mendoza.
 Fuente principal: Inmoclick (https://inmoclick.com/departamentos-en-alquiler-en-mendoza).
-Fuente adicional real: argenprop.com -- no es otro motor sobre Inmoclick, es
-un sitio con HTML y estructura completamente distintos. Ultimo recurso: una
-semilla congelada versionada en `data/frozen/`.
+Fuentes adicionales reales: argenprop.com e inmoup.com.ar -- no son otro
+motor sobre Inmoclick, son sitios con HTML y estructura completamente
+distintos. Ultimo recurso: una semilla congelada versionada en `data/frozen/`.
 
 Modelo medallon, capa bronce (`data/raw/<fecha>/`, HTML crudo tal como
 llega) separada de capa plata (`data/processed/`, el CSV final):
 
     wait_for_source -> check_source ---> extract_listings -> parse_raw --------+
-                                     `--> use_frozen_snapshot -----------------+--> transform_clean -> quality_check -> export_csv
-    extract_listings_argenprop -> parse_raw_argenprop -----------------------/
+                                     `--> use_frozen_snapshot -----------------+
+    extract_listings_argenprop -> parse_raw_argenprop -----------------------+--> transform_clean -> quality_check -> export_csv
+    extract_listings_inmoup -> parse_raw_inmoup ----------------------------/
 
-**Por que argenprop siempre corre, y no solo como respaldo ante una caida.**
-El criterio "Volumen suficiente" del Kit de arranque pide mas de 1.000 filas.
-Inmoclick solo, incluso sumando departamentos y casas, da ~980 avisos
-(~715 + ~264) -- por debajo del piso. El kit mismo recomienda la salida para
-este caso: "combinar con otra fuente". Por eso `extract_listings_argenprop`
-no esta condicionada a que Inmoclick falle: corre siempre, en paralelo, y
-sus avisos se suman a los de Inmoclick en `transform_clean`. El respaldo
-ante una fuente caida sigue existiendo (`check_source` -> `use_frozen_snapshot`
-si Inmoclick no responde), pero es una decision aparte de si argenprop
-aporta filas o no.
+**Por que argenprop e inmoup siempre corren, y no solo como respaldo ante
+una caida.** El criterio "Volumen suficiente" del Kit de arranque pide mas
+de 1.000 filas. Inmoclick solo, incluso sumando departamentos y casas, da
+~830 avisos -- por debajo del piso. El kit mismo recomienda la salida para
+este caso: "combinar con otra fuente" (en plural, en este caso: dos). Por
+eso ninguna de las dos fuentes adicionales esta condicionada a que
+Inmoclick falle: corren siempre, en paralelo, y sus avisos se suman a los
+de Inmoclick en `transform_clean`. El respaldo ante una fuente caida sigue
+existiendo (`check_source` -> `use_frozen_snapshot` si Inmoclick no
+responde), pero es una decision aparte de si las otras dos aportan filas o no.
 
-Por que argenprop necesita Playwright y ver el `Dockerfile` de este repo:
-argenprop renderiza precio y superficie por JavaScript del lado del
-cliente -- verificado bajando una ficha con `requests` liso, donde ni el
-precio ni la superficie aparecen en el documento. Sin Chromium instalado en
-la imagen, `extract_listings_argenprop` no puede correr.
+**Por que argenprop necesita Playwright e inmoup no.** argenprop renderiza
+precio y superficie por JavaScript del lado del cliente -- verificado
+bajando una ficha con `requests` liso, donde ni el precio ni la superficie
+aparecen en el documento. inmoup, en cambio, trae toda la ficha en un
+bloque JSON-LD (`schema.org RealEstateListing`) ya presente en el HTML sin
+JavaScript -- alcanza con `requests`, igual que Inmoclick. Sin Chromium
+instalado en la imagen (ver el `Dockerfile` de este repo),
+`extract_listings_argenprop` no puede correr; `extract_listings_inmoup` si.
 """
 from __future__ import annotations
 
@@ -49,11 +53,11 @@ from airflow.task.trigger_rule import TriggerRule
 # ModuleNotFoundError aunque `dags/brujula/` este al lado de este archivo.
 sys.path.insert(0, str(Path(__file__).parent))
 
-from brujula import argenprop, schema
+from brujula import argenprop, inmoup, schema
 from brujula.inmoclick import (TIPOS, fetch, listing_url, n_pages,
                                parse_detail_page, parse_listing_page,
                                total_avisos)
-from brujula.transform import to_row, to_row_argenprop
+from brujula.transform import to_row, to_row_argenprop, to_row_inmoup
 
 log = logging.getLogger(__name__)
 
@@ -368,6 +372,77 @@ def brujula_inmobiliaria_pipeline():
         return registros
 
     @task
+    def extract_listings_inmoup(**context) -> list[dict]:
+        """Capa bronce, inmoup. Corre siempre, igual que argenprop (ver
+        docstring del modulo). No necesita Playwright: la ficha trae el
+        JSON-LD completo en el HTML plano, alcanza con `requests` -- por
+        eso acá se guarda directamente el HTML con `fetch`, no un navegador.
+        """
+        params = context["params"]
+        dag_run = context["dag_run"]
+        fecha = (dag_run.logical_date or dag_run.run_after).date().isoformat()
+        run_folder = _run_folder(fecha) / "inmoup"
+
+        try:
+            candidatas = inmoup.discover_urls()
+        except Exception as e:
+            log.warning("inmoup no responde (%s). Sigue con las otras fuentes.", e)
+            return []
+
+        tope = 12 if params["mode"] == "subset" else 500
+        candidatas = candidatas[:tope]
+
+        targets = []
+        for url in candidatas:
+            lid = inmoup.listing_id(url)
+            tipo = inmoup.tipo_from_url(url)
+            if not lid or not tipo:
+                continue
+            destino = run_folder / f"{lid}.html.gz"
+            targets.append({"url": url, "listing_id": lid, "tipo": tipo,
+                            "bronce": str(destino)})
+
+        pedidas = fallidas = 0
+        for t in targets:
+            destino = Path(t["bronce"])
+            if _bronze_ok(destino) and not params.get("force"):
+                continue
+            try:
+                html = inmoup.fetch(t["url"])
+            except Exception as e:
+                log.warning("no se pudo bajar la ficha de inmoup %s: %s", t["url"], e)
+                fallidas += 1
+                t["bronce"] = None
+                continue
+            _bronze_write(destino, html)
+            pedidas += 1
+            time.sleep(0.4)  # no golpear la fuente
+
+        log.info("inmoup: %s fichas (%s pedidas, %s fallidas)",
+                 len(targets), pedidas, fallidas)
+        return [t for t in targets if t.get("bronce")]
+
+    @task
+    def parse_raw_inmoup(targets: list[dict], **context) -> list:
+        """Parsea el bronce de inmoup (JSON-LD) y descarta lo que no sea
+        de Mendoza (ver `inmoup.parse_ficha`)."""
+        dag_run = context["dag_run"]
+        fecha_extraccion = (dag_run.logical_date or dag_run.run_after).date().isoformat()
+
+        registros, descartadas = [], 0
+        for t in targets:
+            ficha = inmoup.parse_ficha(_bronze_read(Path(t["bronce"])), t["url"])
+            if ficha is None or ficha.get("precio") is None or ficha.get("moneda") is None:
+                descartadas += 1
+                continue
+            registros.append(to_row_inmoup(ficha, t["listing_id"], t["url"],
+                                           t["tipo"], fecha_extraccion))
+
+        log.info("inmoup: %s avisos de Mendoza (%s descartados)",
+                 len(registros), descartadas)
+        return registros
+
+    @task
     def use_frozen_snapshot() -> list:
         """Ultimo recurso para inmoclick: la semilla versionada en el
         repositorio, leida como registros (mismo formato que `parse_raw`)
@@ -385,7 +460,8 @@ def brujula_inmobiliaria_pipeline():
 
     @task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
     def transform_clean(desde_inmoclick: list | None, desde_congelado: list | None,
-                        desde_argenprop: list | None, **context) -> str:
+                        desde_argenprop: list | None, desde_inmoup: list | None,
+                        **context) -> str:
         """Capa plata. Junta las fuentes que corrieron, tipa columnas, dedupe
         por `listing_id` y calcula `precio_m2` -- la columna objetivo de la
         propuesta.
@@ -393,7 +469,7 @@ def brujula_inmobiliaria_pipeline():
         import pandas as pd
 
         registros = (list(desde_inmoclick or []) + list(desde_congelado or [])
-                    + list(desde_argenprop or []))
+                    + list(desde_argenprop or []) + list(desde_inmoup or []))
         if not registros:
             raise ValueError("ninguna fuente produjo avisos")
         df = pd.DataFrame(registros, columns=schema.COLUMNS)
@@ -485,7 +561,11 @@ def brujula_inmobiliaria_pipeline():
     objetivos_ap = extract_listings_argenprop()
     registros_argenprop = parse_raw_argenprop(objetivos_ap)
 
-    limpio = transform_clean(registros_inmoclick, congelado, registros_argenprop)
+    objetivos_iu = extract_listings_inmoup()
+    registros_inmoup = parse_raw_inmoup(objetivos_iu)
+
+    limpio = transform_clean(registros_inmoclick, congelado, registros_argenprop,
+                             registros_inmoup)
     reporte = quality_check(limpio)
     export_csv(limpio, reporte)
 
