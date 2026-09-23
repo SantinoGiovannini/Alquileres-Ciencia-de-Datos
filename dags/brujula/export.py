@@ -13,11 +13,13 @@ log = logging.getLogger(__name__)
 ORDEN = [
     "clave", "fuente", "usr_id", "prp_id", "url",
     "fecha_scraping", "fecha_publicacion",
+    "primera_vista", "ultima_vista", "veces_visto", "dias_publicado",
     "precio", "moneda", "precio_m2",
     "superficie_cubierta_m2", "superficie_total_m2",
     "ambientes", "dormitorios", "banos",
     "tipo_construccion", "condicion", "estado_conservacion", "antiguedad",
     "localidad", "provincia", "direccion", "ubicacion", "latitud", "longitud",
+    "tiene_geo", "dist_centro_km", "zona_geo", "densidad_1km",
     "cochera", "plantas", "piscina", "amoblado",
     "tiene_expensas", "valor_expensas", "acepta_mascotas", "zona_escolar",
     "publicador", "tipo_anunciante", "es_dueno_directo",

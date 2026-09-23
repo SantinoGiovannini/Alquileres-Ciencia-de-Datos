@@ -1,4 +1,22 @@
+# Dependencias del proyecto, como referencia.
+#
+# OJO: los contenedores NO instalan este archivo. La imagen de Airflow usa
+# la variable _PIP_ADDITIONAL_REQUIREMENTS del .env, y esa es la que manda
+# para el pipeline. Si se agrega una libreria aca, hay que agregarla alla
+# tambien (o pasar a una imagen propia, que es lo que corresponde cuando
+# esto deje de ser un trabajo de cursada).
+
+# --- pipeline (van en el .env) ---
 requests
 beautifulsoup4
 pandas
 lxml
+scikit-learn
+
+# --- solo para regenerar el notebook de la Entrega 2 ---
+# No van en el .env a proposito: se instalarian en los seis contenedores y
+# alcanza con tenerlas en uno. El comando esta en el README.
+matplotlib
+nbformat
+nbconvert
+ipykernel

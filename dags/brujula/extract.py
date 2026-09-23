@@ -31,6 +31,11 @@ def extract_listings(max_paginas=None, fuentes=None, fecha=None) -> str:
     su fecha explicita.
     """
     fecha = fecha or date.today().strftime("%Y%m%d")
+    if max_paginas is not None:
+        # El formulario de Trigger DAG de Airflow puede mandar esto como
+        # string (ej. "3") en vez de int; sin esta conversion, min()/slice
+        # con max_paginas revientan mas abajo en cada fuente.
+        max_paginas = int(max_paginas)
     run_dir = RAW_DIR / fecha
     run_dir.mkdir(parents=True, exist_ok=True)
 

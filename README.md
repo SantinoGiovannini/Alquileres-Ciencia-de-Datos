@@ -20,15 +20,16 @@ en `Documentacion/Propuestas_Proyecto_Integrador_Inmobiliario.docx`.
 
 | Portal | Rol | Filas | robots.txt |
 |---|---|---|---|
-| Inmoclick | principal | 706 | sin reglas de exclusion |
-| InmoUP | principal | 969 | permite sitemaps; prohibe `/json/` |
+| Inmoclick | principal | 1.111 | sin reglas de exclusion |
+| InmoUP | principal | 1.393 | permite sitemaps; prohibe `/json/` |
 | ZonaProp | descartado por ahora | 1.330 disponibles | solo paginas 2-5 de busqueda |
 | Argenprop | descartado por ahora | 127 disponibles | solo paginas 1-3 de busqueda |
 
 ZonaProp y Argenprop quedaron afuera de esta entrega porque su `robots.txt`
 no permite paginar los resultados de busqueda: para bajarlos completos hay
 que armar el pipeline desde sus sitemaps, que es un camino distinto. Con
-los dos portales que si estan, el dataset ya supera las 1.000 filas.
+los dos portales que si estan, el dataset llega a **2.504 avisos** (objetivo
+de la catedra: mas de 1.000).
 
 ### Cosas que aparecieron al mirar el HTML real
 
@@ -91,6 +92,7 @@ poder probarla desde una terminal sin levantar Airflow. Esta dentro de
     data/raw/AAAAMMDD/<fuente>/   HTML crudo, capa bronce      (no se versiona, ~1,7 GB)
     data/processed/               intermedios de trabajo        (no se versiona)
     resultados/AAAAMMDD/          CSV final + reporte de calidad (SI se versiona)
+    notebooks/                    analisis exploratorio (Entrega 2)
 
 `resultados/` es la excepcion a la regla de "los datos no van al repo": son
 los dos archivos que se entregan y se defienden, pesan un par de MB, y asi
@@ -219,11 +221,67 @@ eso InmoUP se recorre por sitemaps y no por sus endpoints JSON, y por eso
 ZonaProp y Argenprop quedaron afuera. El pipeline se identifica con un
 User-Agent propio y espera 1 segundo entre pedidos.
 
+## Entrega 2: que cambio
+
+Las dos correcciones que marco la catedra sobre la Entrega 1, y el analisis
+exploratorio. El plan completo esta en
+`Documentacion/Entrega_2_Plan.md`; el analisis, en
+`notebooks/entrega2_eda.ipynb`.
+
+**1. Scheduling.** El DAG paso de `schedule=None` a `"0 9 * * *"` (06:00 en
+Argentina), con `catchup=False`, `max_active_runs=1` y dos reintentos. Sin
+catchup a proposito: un backfill no traeria los avisos de esa fecha, porque
+los portales muestran solo lo que esta publicado hoy. Correr hacia atras
+scrapearia N veces el inventario actual bajo N fechas distintas.
+
+**2. Latitud y longitud usadas de verdad.** Estaban en el CSV pero crudas.
+Ahora `transform.py` las convierte en cuatro features: `dist_centro_km`
+(haversine a Plaza Independencia), `zona_geo` (KMeans sobre el aglomerado),
+`densidad_1km` (vecinos en 1 km) y `tiene_geo`. Antes de derivarlas, anula
+las coordenadas imposibles: habia avisos de Mendoza ubicados en Salta y en
+Peru.
+
+### Regenerar el notebook
+
+El `.ipynb` se genera con `notebooks/build_nb.py` y no se edita a mano: es
+el entregable, y tiene que poder recalcularse contra un CSV nuevo cada vez
+que el pipeline suma avisos.
+
+Una sola vez por contenedor, para instalar las herramientas (no estan en el
+`.env` porque solo hacen falta en uno):
+
+```bash
+docker exec alquileres-ciencia-de-datos-airflow-triggerer-1 \
+    python -m pip install matplotlib nbformat nbconvert ipykernel
+```
+
+Despues, cada vez que se quiera actualizar el analisis:
+
+```bash
+docker exec alquileres-ciencia-de-datos-airflow-triggerer-1 \
+    python /opt/airflow/notebooks/build_nb.py \
+    /opt/airflow/resultados/20260922/brujula_inmobiliaria_alquiler_mendoza.csv
+
+docker exec alquileres-ciencia-de-datos-airflow-triggerer-1 \
+    python -m nbconvert --to notebook --execute --inplace \
+    --ExecutePreprocessor.timeout=900 /opt/airflow/notebooks/entrega2_eda.ipynb
+```
+
+El primero arma las celdas; el segundo las ejecuta y guarda las salidas
+adentro del archivo, que es lo que pide la consigna. El notebook se abre con
+VS Code sin necesidad de kernel, porque las salidas ya estan guardadas.
+
+**3. El dataset acumula fechas.** Cada scrapeo es una foto del inventario
+publicado ese dia, no un incremento. `parse_raw` ahora lee todas las fechas
+de `data/raw/` y `transform_clean` deduplica por `clave` quedandose con la
+observacion mas reciente. Entre corridas consecutivas aparecen entre 17 y 35
+avisos nuevos por dia, asi que la union suma filas reales.
+
 ## Estado
 
 - [x] Fase 0 - estructura del repo y DAG esqueleto
 - [x] Fase 1 - extraccion real (extract_listings, parse_raw)
 - [x] Fase 2 - transformacion y calidad (transform_clean, quality_check)
 - [x] Fase 3 - correr el DAG completo en Airflow y dejarlo en verde
-- [ ] Fase 4 - documentacion final
+- [x] Fase 4 - Entrega 2: scheduling, features geograficas, EDA
 - [ ] Fase 5 - ensayo cronometrado

@@ -4,7 +4,7 @@
 # README) y no se toca: Docker Compose junta solo este override con el
 # oficial cuando se corre `docker compose up` en esta carpeta.
 #
-# Hace dos cosas:
+# Hace tres cosas:
 #
 # 1. Monta las carpetas donde el pipeline escribe: data/ (capa bronce e
 #    intermedios) y resultados/ (el CSV y el reporte de calidad). El
@@ -12,13 +12,17 @@
 #    estas dos: sin el montaje, las tareas escriben adentro del contenedor
 #    y los archivos nunca aparecen en el repo. Pasa en silencio, porque la
 #    tarea igual termina en verde.
-# 2. Apaga los DAGs de ejemplo de Airflow, para que en la UI se vea solo
+# 2. Monta notebooks/, donde vive el analisis exploratorio de la Entrega 2.
+#    Sin el montaje, el notebook se puede generar adentro del contenedor
+#    pero no aparece en el repo, que es donde se entrega.
+# 3. Apaga los DAGs de ejemplo de Airflow, para que en la UI se vea solo
 #    el DAG del proyecto.
 
 x-brujula-data: &brujula-data
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/airflow/data
     - ${AIRFLOW_PROJ_DIR:-.}/resultados:/opt/airflow/resultados
+    - ${AIRFLOW_PROJ_DIR:-.}/notebooks:/opt/airflow/notebooks
   environment:
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
 

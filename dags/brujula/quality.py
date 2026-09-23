@@ -13,6 +13,55 @@ from brujula.transform import leer_intermedio
 log = logging.getLogger(__name__)
 
 
+def _ventana_de_observacion(df) -> list:
+    """Que fechas de scraping entraron y cuantos avisos aporto cada una.
+
+    Con el dataset acumulado, saber esto no es un detalle: `precio_m2` esta
+    en pesos para la mayoria de las filas, y mezclar fechas separadas por
+    semanas mete la inflacion adentro de la columna objetivo. El reporte
+    tiene que dejar escrito de que ventana se trata.
+    """
+    if "primera_vista" not in df or "fecha_scraping" not in df:
+        return []
+
+    fechas = df["fecha_scraping"].dropna()
+    if fechas.empty:
+        return []
+
+    nuevos = df["primera_vista"].dt.strftime("%Y-%m-%d").value_counts().sort_index()
+    return [
+        "   ventana de observacion: "
+        f"{fechas.min():%Y-%m-%d} a {fechas.max():%Y-%m-%d} "
+        f"({df['fecha_scraping'].nunique()} corridas)",
+        "   avisos vistos por primera vez en cada corrida:",
+        *[f"      {fecha:<12} {n}" for fecha, n in nuevos.items()],
+        f"   avisos vistos en mas de una corrida: "
+        f"{int((df['veces_visto'] > 1).sum())}",
+    ]
+
+
+def _cobertura_geografica(df) -> list:
+    """Cuantos avisos tienen coordenadas utilizables y como quedan las zonas."""
+    if "tiene_geo" not in df:
+        return []
+
+    lineas = [
+        f"   avisos con coordenadas: {int(df['tiene_geo'].sum())} "
+        f"({df['tiene_geo'].mean():.1%})",
+    ]
+    if "dist_centro_km" in df:
+        lineas.append(
+            "   distancia al centro (km): "
+            f"mediana {df['dist_centro_km'].median():.1f} | "
+            f"maxima {df['dist_centro_km'].max():.1f}"
+        )
+    if "zona_geo" in df:
+        reparto = df["zona_geo"].value_counts(dropna=False).sort_index()
+        lineas.append("   avisos por zona_geo (-1 = interior provincial):")
+        lineas += [f"      zona {z:<8} {n}" for z, n in reparto.items()]
+    return lineas
+
+
 def quality_check(clean_path: str, run_folder: str = None) -> str:
     df = leer_intermedio(clean_path)
 
@@ -57,6 +106,8 @@ def quality_check(clean_path: str, run_folder: str = None) -> str:
         "(se marcan, no se borran)",
         *[f"      {m:<45} {n}"
           for m, n in df["motivo_sospecha"].value_counts().items()],
+        *_ventana_de_observacion(df),
+        *_cobertura_geografica(df),
     ]
 
     if not clave_unica:

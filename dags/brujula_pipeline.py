@@ -21,9 +21,15 @@ Parametros de la corrida (se editan al dispararla desde la UI):
                  hoy en UTC (el contenedor no corre en hora argentina).
                  Poner una fecha ya scrapeada reprocesa sin volver a
                  pedirle nada a los portales.
+  acumular_historico -> True (por defecto) arma el dataset con todas las
+                 fechas que haya en data/raw/, no solo con la de esta
+                 corrida. Cada scrapeo es una foto del inventario
+                 publicado ese dia: la union suma los avisos que se dieron
+                 de baja y los que aparecieron despues. False vuelve al
+                 comportamiento de la Entrega 1, una corrida = un dataset.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task
 
@@ -32,11 +38,28 @@ from brujula import export, extract, parse, quality, transform
 
 @dag(
     dag_id="brujula_inmobiliaria_pipeline",
-    schedule=None,  # manual por ahora; no hace falta que corra sola para la Entrega 1
-    start_date=datetime(2026, 1, 1),
+    # Diario a las 09:00 UTC (06:00 en Argentina). Diario y no por hora
+    # porque un alquiler no cambia de precio en horas y cada corrida son
+    # ~2.400 pedidos a portales ajenos: es el intervalo mas corto que trae
+    # informacion nueva sin abusar del servidor del otro.
+    schedule="0 9 * * *",
+    start_date=datetime(2026, 9, 1),
+    # Sin catchup a proposito. Un backfill no traeria los avisos de esa
+    # fecha: los portales muestran solo lo que esta publicado hoy, asi que
+    # correr hacia atras scrapearia N veces el inventario actual y lo
+    # guardaria bajo N fechas distintas. Seria peor que no tener el dato.
     catchup=False,
-    tags=["brujula-inmobiliaria", "entrega-1"],
-    params={"max_paginas": None, "fuentes": None, "fecha": None},
+    # Una corrida completa tarda ~65 minutos. Sin este limite, una corrida
+    # atrasada se solapa con la siguiente y duplican pedidos.
+    max_active_runs=1,
+    default_args={"retries": 2, "retry_delay": timedelta(minutes=5)},
+    tags=["brujula-inmobiliaria", "entrega-2"],
+    params={
+        "max_paginas": None,
+        "fuentes": None,
+        "fecha": None,
+        "acumular_historico": True,
+    },
 )
 def brujula_inmobiliaria_pipeline():
 
@@ -67,7 +90,12 @@ def brujula_inmobiliaria_pipeline():
         son miles, y pasarlos por XCom cargaria varios MB en la base de
         metadatos de Airflow.
         """
-        return parse.parse_raw(run_folder, fuentes=(params or {}).get("fuentes"))
+        params = params or {}
+        return parse.parse_raw(
+            run_folder,
+            fuentes=params.get("fuentes"),
+            acumular=params.get("acumular_historico", True),
+        )
 
     @task
     def transform_clean(registros_path: str, run_folder: str) -> str:

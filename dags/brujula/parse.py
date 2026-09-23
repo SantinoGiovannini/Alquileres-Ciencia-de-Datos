@@ -13,7 +13,7 @@ import json
 import logging
 from pathlib import Path
 
-from brujula.config import PROCESSED_DIR
+from brujula.config import PROCESSED_DIR, RAW_DIR
 from brujula.fuentes import elegir
 
 log = logging.getLogger(__name__)
@@ -21,16 +21,48 @@ log = logging.getLogger(__name__)
 REGISTROS = PROCESSED_DIR / "_registros.json"
 
 
-def parse_raw(run_folder: str, fuentes=None) -> str:
+def _carpetas_a_leer(run_dir: Path, acumular: bool) -> list:
+    """Carpetas de la capa bronce que entran en esta corrida.
+
+    Con `acumular`, entran todas las fechas que haya en data/raw/ y no solo
+    la de la corrida. La razon es que cada scrapeo es una *foto* del
+    inventario publicado ese dia, no un incremento: el portal muestra lo que
+    esta publicado hoy y nada mas. Leyendo una sola fecha, los avisos que se
+    dieron de baja la semana pasada no existen para el dataset, aunque su
+    HTML este en disco.
+
+    Medido entre corridas consecutivas, aparecen entre 17 y 35 avisos nuevos
+    por dia, asi que la union de fechas suma filas reales.
+    """
+    if not acumular:
+        return [run_dir]
+
+    carpetas = sorted(d for d in RAW_DIR.iterdir() if d.is_dir())
+    if run_dir not in carpetas and run_dir.exists():
+        carpetas.append(run_dir)
+    return carpetas
+
+
+def parse_raw(run_folder: str, fuentes=None, acumular: bool = True) -> str:
     run_dir = Path(run_folder)
+    carpetas = _carpetas_a_leer(run_dir, acumular)
+    log.info("fechas de la capa bronce que entran: %s", [c.name for c in carpetas])
 
     registros = []
-    for nombre, fuente in elegir(fuentes).items():
-        carpeta = run_dir / nombre
-        if not carpeta.exists():
-            log.warning("no hay capa bronce para %s en %s", nombre, run_folder)
-            continue
-        registros.extend(fuente.parsear(carpeta))
+    for fecha_dir in carpetas:
+        for nombre, fuente in elegir(fuentes).items():
+            carpeta = fecha_dir / nombre
+            if not carpeta.exists():
+                log.warning("no hay capa bronce para %s en %s", nombre, fecha_dir)
+                continue
+            nuevos = fuente.parsear(carpeta)
+            # La fecha va por registro y no por corrida: un mismo aviso puede
+            # venir de varias fechas, y transform_clean necesita saber de
+            # cual es cada copia para quedarse con la mas reciente.
+            for r in nuevos:
+                r["fecha_scraping"] = fecha_dir.name
+            registros.extend(nuevos)
+            log.info("%s/%s: %s registros", fecha_dir.name, nombre, len(nuevos))
 
     if not registros:
         raise ValueError("ninguna fuente devolvio registros: revisar la capa bronce")
