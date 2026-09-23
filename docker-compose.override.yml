@@ -29,43 +29,13 @@ x-brujula-data: &brujula-data
 services:
   airflow-apiserver:
     <<: *brujula-data
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${AIRFLOW_IMAGE_NAME:-brujula-airflow:3.3.0}
   airflow-scheduler:
     <<: *brujula-data
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${AIRFLOW_IMAGE_NAME:-brujula-airflow:3.3.0}
   airflow-dag-processor:
     <<: *brujula-data
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${AIRFLOW_IMAGE_NAME:-brujula-airflow:3.3.0}
   airflow-worker:
     <<: *brujula-data
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${AIRFLOW_IMAGE_NAME:-brujula-airflow:3.3.0}
   airflow-triggerer:
     <<: *brujula-data
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${AIRFLOW_IMAGE_NAME:-brujula-airflow:3.3.0}
   airflow-init:
     <<: *brujula-data
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${AIRFLOW_IMAGE_NAME:-brujula-airflow:3.3.0}
-  airflow-cli:
-    <<: *brujula-data
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: ${AIRFLOW_IMAGE_NAME:-brujula-airflow:3.3.0}

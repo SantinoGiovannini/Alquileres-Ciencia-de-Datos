@@ -103,9 +103,8 @@ como se movio el mercado entre corridas sin pisar la anterior.
 ## Como levantar el entorno
 
 ```bash
-curl -LfO 'https://airflow.apache.org/docs/apache-airflow/3.3.0/docker-compose.yaml'
+curl -LfO 'https://airflow.apache.org/docs/apache-airflow/stable/docker-compose.yaml'
 cp .env.example .env
-docker compose build
 docker compose up airflow-init
 docker compose up -d
 # UI en http://localhost:8080 (usuario y contraseña: airflow)
@@ -116,8 +115,8 @@ docker compose up -d
 > versionado es `docker-compose.override.yml`, que Compose junta solo con
 > el oficial y agrega dos cosas: montar `data/` adentro del contenedor (sin
 > eso el HTML crudo y el CSV quedarian encerrados ahi) y apagar los DAGs de
-> ejemplo. Ademas, el override construye la imagen `brujula-airflow:3.3.0`
-> desde el `Dockerfile`, con todas las librerias de `requirements.txt`.
+> ejemplo. Las librerias de scraping se instalan via
+> `_PIP_ADDITIONAL_REQUIREMENTS` en el `.env`.
 
 Despues, en la UI: activar el DAG `brujula_inmobiliaria_pipeline` y
 dispararlo a mano (no tiene schedule). Al dispararlo se le pueden pasar
