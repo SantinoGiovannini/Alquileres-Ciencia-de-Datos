@@ -37,7 +37,8 @@ def code(texto): celdas.append(nbf.v4.new_code_cell(texto.strip()))
 md("""
 # Brujula Inmobiliaria - Entrega 2: analisis exploratorio
 
-**Grupo N -** *(completar: numero de grupo e integrantes)*
+**Grupo 5k10-09** - Gustavo Santino Giovannini, Rodrigo Luis Vargas,
+Renzo Sahade, Garcia Zacarias, Santiago Bullaude
 
 **Pregunta del proyecto.** Un aviso de alquiler de departamento en Mendoza,
 esta sobrevalorado, en linea con el mercado, o es una oportunidad?
