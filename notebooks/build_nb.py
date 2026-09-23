@@ -231,6 +231,9 @@ significa nada: mezcla pesos con dolares.
 los avisos en USD se analizan aparte. La alternativa era convertir con una
 cotizacion fija, que mantiene todas las filas pero mete un supuesto de tipo
 de cambio que no podemos justificar con el dato que tenemos.
+
+Ya dentro de los avisos en pesos, la distribucion se mira en tres pasos,
+porque el primero por si solo engaña:
 """)
 
 code("""
@@ -239,18 +242,69 @@ ars = df[df["moneda"] == "ARS"].copy()
 objetivo = ars["precio_m2"].dropna()
 objetivo = objetivo[objetivo > 0]
 
-fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+# La misma columna, pero sin las filas que el pipeline ya marco como
+# sospechosas. La diferencia entre las dos no es cosmetica: ver mas abajo.
+sano = ars.loc[ars["motivo_sospecha"].isna(), "precio_m2"].dropna()
+sano = sano[sano > 0]
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
 axes[0].hist(objetivo, bins=60)
-axes[0].set_title("precio_m2 (ARS) - escala lineal")
+axes[0].set_title(f"Todas (n={len(objetivo)})\\nescala lineal")
 axes[0].set_xlabel("ARS por m2"); axes[0].set_ylabel("cantidad de avisos")
 
-axes[1].hist(np.log10(objetivo), bins=60)
-axes[1].set_title("log10(precio_m2) (ARS)")
-axes[1].set_xlabel("log10(ARS por m2)"); axes[1].set_ylabel("cantidad de avisos")
+axes[1].hist(sano, bins=60)
+axes[1].set_title(f"Sin las marcadas (n={len(sano)})\\nescala lineal")
+axes[1].set_xlabel("ARS por m2"); axes[1].set_ylabel("cantidad de avisos")
+
+axes[2].hist(np.log10(sano), bins=60)
+axes[2].set_title("Sin las marcadas\\nlog10")
+axes[2].set_xlabel("log10(ARS por m2)"); axes[2].set_ylabel("cantidad de avisos")
 plt.tight_layout(); plt.show()
 
-print("asimetria de precio_m2 (ARS):", round(objetivo.skew(), 2))
-print("asimetria en log:", round(np.log10(objetivo).skew(), 2))
+print(f"{'':16} {'n':>6} {'maximo':>12} {'asimetria':>10} {'en log':>8}")
+print(f"{'TODAS':16} {len(objetivo):6} {objetivo.max():12,.0f} "
+      f"{objetivo.skew():10.2f} {np.log10(objetivo).skew():8.2f}")
+print(f"{'SIN LAS MARCADAS':16} {len(sano):6} {sano.max():12,.0f} "
+      f"{sano.skew():10.2f} {np.log10(sano).skew():8.2f}")
+print()
+print("las filas que se excluyen, y por que:")
+print(ars.loc[ars["motivo_sospecha"].notna(), "motivo_sospecha"].value_counts().to_string())
+""")
+
+md("""
+**Lo que muestran los tres paneles, y es el punto de esta seccion.**
+
+El primero, con todas las filas, es **ilegible a proposito**: el eje llega a
+1.100.000 ARS/m2 y el 99 % de los avisos cae aplastado contra el cero. Esa
+es la pinta de una columna con outliers extremos, y es lo que hay que
+reconocer antes de calcular cualquier promedio.
+
+Pero esos extremos **no son el mercado**. Los ocho valores mas altos son
+avisos con `superficie_cubierta_m2 = 1`, todos ya identificados por el
+pipeline en `motivo_sospecha`: alguien publico un departamento cargando 1 m2
+en el campo de la superficie, y al dividir el precio por 1 el `precio_m2`
+explota. No es un alquiler caro, es una division por un dato mal cargado.
+
+En los avisos en pesos hay **42 marcados** por superficie fuera de rango, y
+**15 de ellos** tenian un `precio_m2` calculado (el resto no llega a tener
+precio o superficie). Sacando esos 15, el conteo pasa de 2184 a 2169 y la
+lectura cambia por completo:
+
+| | Todas | Sin las marcadas |
+|---|---|---|
+| Maximo | 1.100.000 | **85.000** |
+| Asimetria | 15,14 | **7,05** |
+| Asimetria en log10 | 4,87 | **-0,12** |
+
+**El `log10(precio_m2)` queda practicamente simetrico (-0,12).** Es el
+resultado mas util de esta seccion para la Entrega 3: el objetivo, en
+logaritmo y sin las filas defectuosas, tiene forma de campana, con mediana
+en 10.200 ARS/m2 y el 99 % de los avisos por debajo de 20.000.
+
+Dicho de otra forma: **no hay una clase que se coma todo**, que era lo que
+la consigna pedia verificar. Lo que habia era un puñado de errores de carga
+haciendose pasar por cola larga.
 """)
 
 md("### 1.7 Asimetria de las numericas: cuales tienen cola larga")
