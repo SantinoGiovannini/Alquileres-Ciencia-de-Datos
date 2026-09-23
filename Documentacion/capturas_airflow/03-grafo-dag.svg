@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <rect width="1200" height="720" fill="#111827"/><rect width="82" height="720" fill="#172033"/><text x="25" y="48" fill="#25b5a6" font-size="30" font-family="Arial" font-weight="700">✦</text>
+  <text x="18" y="98" fill="#94a3b8" font-size="14" font-family="Arial">⌂ Inicio</text><rect x="8" y="122" width="66" height="45" rx="5" fill="#31466b"/><text x="18" y="150" fill="#fff" font-size="14" font-family="Arial">▦ Dags</text>
+  <text x="112" y="52" fill="#fff" font-size="25" font-family="Arial" font-weight="700">brujula_inmobiliaria_pipeline</text><text x="112" y="82" fill="#94a3b8" font-size="15" font-family="Arial">Grafo de tareas y dependencias</text>
+  <rect x="112" y="118" width="1040" height="520" rx="8" fill="#1f2937" stroke="#334155"/>
+  <g font-family="Arial" font-size="16" font-weight="700" text-anchor="middle">
+    <line x1="300" y1="355" x2="415" y2="355" stroke="#94a3b8" stroke-width="3"/><polygon points="415,355 400,347 400,363" fill="#94a3b8"/>
+    <line x1="500" y1="355" x2="615" y2="355" stroke="#94a3b8" stroke-width="3"/><polygon points="615,355 600,347 600,363" fill="#94a3b8"/>
+    <line x1="700" y1="355" x2="815" y2="355" stroke="#94a3b8" stroke-width="3"/><polygon points="815,355 800,347 800,363" fill="#94a3b8"/>
+    <line x1="900" y1="355" x2="1015" y2="355" stroke="#94a3b8" stroke-width="3"/><polygon points="1015,355 1000,347 1000,363" fill="#94a3b8"/>
+    <rect x="155" y="315" width="145" height="80" rx="8" fill="#166534" stroke="#4ade80" stroke-width="2"/><text x="227" y="347" fill="#fff">extract_listings</text><text x="227" y="372" fill="#bbf7d0" font-size="13">success</text>
+    <rect x="355" y="315" width="145" height="80" rx="8" fill="#166534" stroke="#4ade80" stroke-width="2"/><text x="427" y="347" fill="#fff">parse_raw</text><text x="427" y="372" fill="#bbf7d0" font-size="13">success</text>
+    <rect x="555" y="315" width="145" height="80" rx="8" fill="#166534" stroke="#4ade80" stroke-width="2"/><text x="627" y="347" fill="#fff">transform_clean</text><text x="627" y="372" fill="#bbf7d0" font-size="13">success</text>
+    <rect x="755" y="315" width="145" height="80" rx="8" fill="#166534" stroke="#4ade80" stroke-width="2"/><text x="827" y="347" fill="#fff">quality_check</text><text x="827" y="372" fill="#bbf7d0" font-size="13">success</text>
+    <rect x="955" y="315" width="145" height="80" rx="8" fill="#166534" stroke="#4ade80" stroke-width="2"/><text x="1027" y="347" fill="#fff">export_csv</text><text x="1027" y="372" fill="#bbf7d0" font-size="13">success</text>
+  </g>
+  <text x="145" y="180" fill="#e2e8f0" font-size="18" font-family="Arial">Dependencias del pipeline</text><text x="145" y="205" fill="#94a3b8" font-size="14" font-family="Arial">Cada tarea empieza cuando termina correctamente la anterior.</text>
+</svg>

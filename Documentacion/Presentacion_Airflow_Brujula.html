@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Airflow · Brujula Inmobiliaria</title>
+  <style>
+    :root {
+      --bg: #080d1b;
+      --panel: #111a2d;
+      --panel-2: #17233b;
+      --text: #eef5ff;
+      --muted: #9fb0c9;
+      --accent: #52d6c5;
+      --blue: #80a9ff;
+      --yellow: #ffd166;
+      --red: #ff7185;
+      --green: #5ee39c;
+      --line: rgba(166, 190, 230, .2);
+      --shadow: 0 24px 70px rgba(0, 0, 0, .35);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: radial-gradient(circle at 15% 5%, #1c3155 0, transparent 35%), var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+    button { font: inherit; }
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      height: 66px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 4vw; border-bottom: 1px solid var(--line); background: rgba(8, 13, 27, .76);
+      backdrop-filter: blur(12px); z-index: 5;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 750; letter-spacing: .02em; }
+    .brand-mark { color: var(--accent); font-size: 25px; }
+    .top-actions { display: flex; gap: 9px; align-items: center; }
+    .top-actions button, .nav button {
+      color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+      border-radius: 999px; padding: 8px 14px; cursor: pointer; transition: .2s ease;
+    }
+    .top-actions button:hover, .nav button:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .progress { height: 4px; background: #1b2942; }
+    .progress > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--blue)); transition: width .3s ease; }
+    main { flex: 1; min-height: 0; position: relative; }
+    .slide {
+      display: none; position: absolute; inset: 0; overflow: auto; padding: 5.5vh 8vw 13vh;
+      animation: enter .35s ease both;
+    }
+    .slide.active { display: block; }
+    @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .slide-inner { max-width: 1120px; margin: 0 auto; }
+    .kicker { color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; margin: 0 0 13px; }
+    h1, h2, h3 { line-height: 1.08; margin: 0 0 18px; }
+    h1 { font-size: clamp(2.8rem, 7vw, 6.5rem); max-width: 900px; letter-spacing: -.06em; }
+    h2 { font-size: clamp(2rem, 4vw, 4rem); letter-spacing: -.04em; }
+    h3 { font-size: 1.15rem; color: #fff; }
+    p.lead { color: var(--muted); font-size: clamp(1.1rem, 2vw, 1.4rem); max-width: 780px; }
+    .muted { color: var(--muted); }
+    .accent { color: var(--accent); }
+    .blue { color: var(--blue); }
+    .yellow { color: var(--yellow); }
+    .red { color: var(--red); }
+    .green { color: var(--green); }
+    .hero { min-height: 72vh; display: grid; align-content: center; }
+    .hero .eyebrow { display: inline-flex; width: fit-content; border: 1px solid rgba(82,214,197,.35); background: rgba(82,214,197,.08); color: var(--accent); border-radius: 999px; padding: 7px 13px; margin-bottom: 24px; font-size: .9rem; }
+    .hero-foot { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 34px; color: var(--muted); }
+    .hero-foot span { border-left: 2px solid var(--accent); padding-left: 10px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid.two { grid-template-columns: repeat(2, 1fr); }
+    .card { background: linear-gradient(145deg, rgba(23,35,59,.96), rgba(17,26,45,.96)); border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); }
+    .card p:last-child { margin-bottom: 0; }
+    .big-number { font-size: 2.7rem; color: var(--accent); font-weight: 800; line-height: 1; margin-bottom: 9px; }
+    .flow { display: flex; align-items: stretch; gap: 9px; margin: 42px 0; flex-wrap: wrap; }
+    .flow-step { flex: 1 1 160px; min-height: 100px; display: grid; place-items: center; text-align: center; padding: 16px; border: 1px solid rgba(128,169,255,.45); border-radius: 14px; background: rgba(128,169,255,.12); font-weight: 750; }
+    .flow-arrow { display: grid; place-items: center; color: var(--accent); font-size: 1.4rem; }
+    .callout { border-left: 4px solid var(--accent); background: rgba(82,214,197,.08); padding: 16px 19px; border-radius: 0 12px 12px 0; margin: 22px 0; }
+    .callout.warn { border-color: var(--yellow); background: rgba(255,209,102,.08); }
+    .callout.danger { border-color: var(--red); background: rgba(255,113,133,.08); }
+    .pill { display: inline-block; border-radius: 999px; padding: 3px 9px; margin: 2px; background: rgba(128,169,255,.15); color: var(--blue); font-size: .82rem; }
+    .table { width: 100%; border-collapse: collapse; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: rgba(17,26,45,.85); }
+    .table th, .table td { text-align: left; vertical-align: top; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .table th { color: var(--accent); background: rgba(82,214,197,.08); font-size: .86rem; }
+    .table tr:last-child td { border-bottom: 0; }
+    .terminal { background: #050914; border: 1px solid #293a5d; border-radius: 14px; padding: 22px; overflow: auto; box-shadow: inset 0 0 35px rgba(0,0,0,.3); }
+    .terminal code { color: #c8d5ea; font: .92rem/1.9 "Cascadia Code", Consolas, monospace; white-space: pre-wrap; }
+    .terminal .warnline { color: var(--yellow); }
+    .terminal .okline { color: var(--green); }
+    .terminal .prompt { color: var(--accent); }
+    .mini-ui { display: grid; grid-template-columns: 76px 1fr; min-height: 320px; background: #111827; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+    .mini-side { background: #172033; padding: 18px 9px; color: var(--muted); font-size: .75rem; }
+    .mini-side strong { display: block; color: var(--accent); font-size: 1.5rem; text-align: center; margin-bottom: 22px; }
+    .mini-side div { padding: 8px 5px; margin: 3px 0; border-radius: 6px; }
+    .mini-side div.active { background: #31466b; color: #fff; }
+    .mini-content { padding: 22px; }
+    .mini-title { color: #fff; font-weight: 750; margin-bottom: 18px; }
+    .mini-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .mini-kpi { border: 1px solid var(--line); border-radius: 8px; padding: 13px; background: #1f2937; }
+    .mini-kpi small { display: block; color: var(--muted); }.mini-kpi b { font-size: 1.4rem; }
+    .tasks { display: grid; gap: 9px; margin-top: 17px; }
+    .task { display: flex; justify-content: space-between; padding: 12px 15px; border: 1px solid rgba(94,227,156,.35); border-radius: 9px; background: rgba(22,101,52,.35); }
+    .task span:last-child { color: var(--green); }
+    .answer { margin-top: 10px; }
+    details { border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; background: rgba(17,26,45,.75); }
+    details + details { margin-top: 10px; }
+    summary { cursor: pointer; color: var(--accent); font-weight: 700; }
+    .nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 4vw; background: rgba(8,13,27,.9); border-top: 1px solid var(--line); backdrop-filter: blur(12px); z-index: 5; }
+    .nav button { min-width: 105px; }
+    .counter { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .hint { font-size: .83rem; color: var(--muted); text-align: center; }
+    .shortcut { display: inline-block; border: 1px solid var(--line); background: var(--panel-2); border-radius: 5px; padding: 1px 6px; color: #d7e4f7; font-size: .78rem; }
+    @media (max-width: 760px) {
+      body { overflow: auto; }
+      .topbar { height: 58px; padding: 0 18px; }.top-actions button:first-child { display: none; }
+      .slide { padding: 34px 20px 100px; }.grid, .grid.two { grid-template-columns: 1fr; }.mini-ui { grid-template-columns: 58px 1fr; }.mini-kpis { grid-template-columns: 1fr; }.flow-arrow { transform: rotate(90deg); }
+      h1 { font-size: 3.5rem; }.table { display: block; overflow-x: auto; }.table th, .table td { min-width: 170px; }
+    }
+    @media print {
+      body { overflow: visible; background: #fff; color: #111; }.topbar, .nav, .progress { display: none; }
+      main { position: static; }.slide, .slide.active { display: block; position: relative; page-break-after: always; min-height: 100vh; color: #111; padding: 1.5cm; }
+      .card, .table, .terminal, .mini-ui { box-shadow: none; color: #111; }.muted, p.lead { color: #445; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">✦</span><span>Brujula Inmobiliaria · Guía de estudio</span></div>
+      <div class="top-actions"><button id="printBtn" type="button">Imprimir / PDF</button><button id="helpBtn" type="button">Ayuda <span class="shortcut">?</span></button></div>
+    </header>
+    <div class="progress"><span id="progressBar"></span></div>
+    <main id="slides">
+      <section class="slide active" data-title="Portada">
+        <div class="slide-inner hero">
+          <div class="eyebrow">Presentación para estudiar</div>
+          <p class="kicker">Airflow · pipeline de datos</p>
+          <h1>Entender el proyecto sin memorizarlo de memoria.</h1>
+          <p class="lead">Una guía visual del recorrido completo: desde el aviso inmobiliario hasta el CSV, los controles de calidad y el análisis que viene después.</p>
+          <div class="hero-foot"><span>13 diapositivas</span><span>Teclas ← → para navegar</span><span>Basado en el informe del proyecto</span></div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="La idea central">
+        <div class="slide-inner">
+          <p class="kicker">01 · La idea central</p><h2>¿Qué problema resuelve el proyecto?</h2>
+          <p class="lead">Recolecta avisos de alquiler de Mendoza, los transforma a un formato común y entrega un dataset listo para analizar.</p>
+          <div class="grid" style="margin-top:32px">
+            <div class="card"><div class="big-number">2</div><h3>Fuentes</h3><p class="muted">Inmoclick e InmoUP. Cada aviso publicado es una fila.</p></div>
+            <div class="card"><div class="big-number">1</div><h3>Unidad de análisis</h3><p class="muted">El aviso, no necesariamente la propiedad. Una misma propiedad puede aparecer en dos portales.</p></div>
+            <div class="card"><div class="big-number">1</div><h3>Objetivo</h3><p class="muted">Preparar <span class="accent">precio_m2</span> para estimar el valor esperado y estudiar oportunidades.</p></div>
+          </div>
+          <div class="callout"><strong>Frase para la defensa:</strong> “El pipeline convierte publicaciones heterogéneas en una base comparable y trazable”.</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="El pipeline">
+        <div class="slide-inner">
+          <p class="kicker">02 · El mapa</p><h2>El pipeline, de izquierda a derecha</h2>
+          <div class="flow">
+            <div class="flow-step">extract_<br>listings</div><div class="flow-arrow">→</div>
+            <div class="flow-step">parse_<br>raw</div><div class="flow-arrow">→</div>
+            <div class="flow-step">transform_<br>clean</div><div class="flow-arrow">→</div>
+            <div class="flow-step">quality_<br>check</div><div class="flow-arrow">→</div>
+            <div class="flow-step">export_<br>csv</div>
+          </div>
+          <div class="grid two">
+            <div class="card"><h3>Regla de dependencias</h3><p class="muted">Una tarea empieza cuando la anterior termina correctamente. Si una falla, las siguientes no deberían procesar datos incompletos.</p></div>
+            <div class="card"><h3>Qué hace Airflow</h3><p class="muted">Coordina, agenda, ejecuta, registra estados y muestra logs. <strong>No es el scraper por sí solo.</strong></p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Airflow y Docker">
+        <div class="slide-inner">
+          <p class="kicker">03 · El entorno</p><h2>Airflow coordina; Docker arma el equipo</h2>
+          <div class="grid" style="margin-top:28px">
+            <div class="card"><h3 class="accent">airflow-apiserver</h3><p class="muted">Sirve la interfaz web y la API en <code>localhost:8080</code>.</p></div>
+            <div class="card"><h3 class="accent">airflow-scheduler</h3><p class="muted">Decide cuándo ejecutar y respeta dependencias.</p></div>
+            <div class="card"><h3 class="accent">airflow-worker</h3><p class="muted">Ejecuta el código real de las tareas.</p></div>
+            <div class="card"><h3 class="blue">dag-processor</h3><p class="muted">Lee los archivos Python de <code>dags/</code>.</p></div>
+            <div class="card"><h3 class="blue">Postgres</h3><p class="muted">Guarda usuarios, ejecuciones, estados y metadata.</p></div>
+            <div class="card"><h3 class="blue">Redis</h3><p class="muted">Funciona como cola de mensajes entre scheduler y worker.</p></div>
+          </div>
+          <div class="callout warn"><strong>Pregunta típica:</strong> ¿Por qué <code>airflow-init</code> termina? Porque solo inicializa la base y el usuario. Que termine con código 0 es normal.</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Cómo levantarlo">
+        <div class="slide-inner">
+          <p class="kicker">04 · Primeros comandos</p><h2>Levantar, mirar y detener</h2>
+          <div class="terminal"><code><span class="prompt">PS&gt;</span> cd "C:\Users\varga\Desktop\Ciencia de Datos\Integrador\Alquileres-Ciencia-de-Datos"
+<span class="prompt">PS&gt;</span> docker compose up -d
+<span class="prompt">PS&gt;</span> docker compose ps
+
+Abrir: <span class="okline">http://localhost:8080</span>
+Usuario: <span class="okline">airflow</span>    Contraseña: <span class="okline">airflow</span>
+
+Detener sin borrar metadata:
+<span class="prompt">PS&gt;</span> docker compose down
+
+Volver a levantar:
+<span class="prompt">PS&gt;</span> docker compose up -d</code></div>
+          <div class="callout danger"><strong>Evitar como rutina:</strong> <code>docker compose down --volumes</code>. Borra los volúmenes, incluida la metadata de Airflow.</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="La interfaz">
+        <div class="slide-inner">
+          <p class="kicker">05 · Navegación web</p><h2>El recorrido en la interfaz</h2>
+          <div class="grid two" style="align-items:center">
+            <div class="mini-ui">
+              <aside class="mini-side"><strong>✦</strong><div>⌂ Inicio</div><div class="active">▦ Dags</div><div>◫ Assets</div><div>⚙ Admin</div></aside>
+              <div class="mini-content"><div class="mini-title">Panel de Airflow</div><div class="mini-kpis"><div class="mini-kpi"><small>Fallidos</small><b class="red">1</b></div><div class="mini-kpi"><small>En ejecución</small><b>0</b></div><div class="mini-kpi"><small>Salud</small><b class="green">●</b></div></div><div class="tasks"><div class="task"><span>brujula_inmobiliaria_pipeline</span><span>Exitoso</span></div></div></div>
+            </div>
+            <div class="card"><h3>Qué mirar, en orden</h3><ol class="muted"><li><strong>Inicio:</strong> salud y resumen.</li><li><strong>Dags:</strong> el DAG debe estar activo.</li><li><strong>Grafo:</strong> ubicar tareas y dependencias.</li><li><strong>Trigger:</strong> configurar una corrida manual.</li><li><strong>Logs:</strong> entender advertencias y errores.</li></ol></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Trigger">
+        <div class="slide-inner">
+          <p class="kicker">06 · Ejecutar una prueba</p><h2>Trigger: iniciar una corrida manual</h2>
+          <p class="lead">Abrir el formulario no ejecuta nada. La ejecución empieza al confirmar el botón <strong>Trigger</strong>.</p>
+          <table class="table" style="margin-top:28px"><thead><tr><th>Parámetro</th><th>Ejemplo corto</th><th>Para qué sirve</th></tr></thead><tbody>
+            <tr><td><code>max_paginas</code></td><td><span class="pill">1</span></td><td>Limita la cantidad de unidades de búsqueda por fuente.</td></tr>
+            <tr><td><code>fuentes</code></td><td><span class="pill">["inmoclick"]</span></td><td>Selecciona uno o ambos portales.</td></tr>
+            <tr><td><code>fecha</code></td><td><span class="pill">20260909</span></td><td>Elige la carpeta bronce <code>AAAAMMDD</code>.</td></tr>
+          </tbody></table>
+          <div class="callout"><strong>Primera prueba recomendada:</strong> <code>max_paginas=1</code>, <code>fuentes=["inmoclick"]</code>, <code>fecha=20260909</code>.</div>
+          <p class="muted">La <strong>fecha lógica</strong> ordena el historial de Airflow. El parámetro <strong>fecha</strong> elige los datos guardados en <code>data/raw/</code>: no son lo mismo.</p>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Las tareas">
+        <div class="slide-inner">
+          <p class="kicker">07 · Qué hace cada etapa</p><h2>Las funciones, en detalle</h2>
+          <table class="table"><thead><tr><th>Función</th><th>Recibe</th><th>Proceso principal</th><th>Devuelve / guarda</th></tr></thead><tbody>
+            <tr><td><strong>extract_listings</strong></td><td>Parámetros: <code>max_paginas</code>, <code>fuentes</code>, <code>fecha</code>.</td><td>Descarga listados y fichas. Conserva el HTML original. Si un portal falla, lo registra y continúa con el otro.</td><td>Devuelve la carpeta <code>data/raw/AAAAMMDD/</code>. Falla solo si no quedó ningún aviso.</td></tr>
+            <tr><td><strong>parse_raw</strong></td><td>La carpeta bronce y las fuentes seleccionadas.</td><td>Lee HTML/JSON-LD con el parser específico de cada portal y unifica el esquema de columnas.</td><td>Guarda <code>data/processed/_registros.json</code> y devuelve su ruta, no miles de filas por XCom.</td></tr>
+            <tr><td><strong>transform_clean</strong></td><td>Ruta del JSON y carpeta de la corrida.</td><td>Crea la clave primaria, convierte tipos, calcula <code>precio_m2</code>, marca duplicados cruzados y valores sospechosos.</td><td>Guarda <code>data/processed/_intermedio_clean.csv</code> y devuelve su ruta.</td></tr>
+            <tr><td><strong>quality_check</strong></td><td>Ruta del CSV intermedio y carpeta de resultados.</td><td>Comprueba unicidad, filas, forma, tipos, nulos y columnas 100% nulas. También resume fuentes, monedas y marcas.</td><td>Guarda <code>resultados/AAAAMMDD/quality_report.txt</code>. Una advertencia queda registrada sin ocultarse.</td></tr>
+            <tr><td><strong>export_csv</strong></td><td>CSV limpio, ruta del reporte y carpeta de la corrida.</td><td>Ordena las columnas y genera el archivo final. Depende del reporte para entregar después del control.</td><td>Guarda <code>resultados/AAAAMMDD/brujula_inmobiliaria_alquiler_mendoza.csv</code>.</td></tr>
+          </tbody></table>
+          <div class="callout"><strong>Cómo se conectan:</strong> Airflow encadena las rutas devueltas por cada función: <code>run_folder → registros_path → clean_path → report_path → CSV final</code>. En el grafo, esas rutas aparecen como dependencias entre tareas.</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Calidad y logs">
+        <div class="slide-inner">
+          <p class="kicker">08 · Leer sin asustarse</p><h2>Una advertencia no siempre es un fallo</h2>
+          <div class="terminal"><code><span class="warnline">WARNING - el dataset tiene 24 filas, por debajo de las 1000 pedidas</span>
+<span class="okline">INFO - reporte de calidad escrito en /opt/airflow/resultados/20260909/quality_report.txt</span>
+<span class="okline">INFO - clave primaria única: True</span>
+<span class="okline">INFO - Done. Returned value was: .../quality_report.txt</span></code></div>
+          <div class="grid two" style="margin-top:20px"><div class="card"><h3 class="yellow">WARNING</h3><p class="muted">Señala una condición para revisar. La prueba corta puede terminar bien aunque avise que tiene pocas filas.</p></div><div class="card"><h3 class="green">INFO + tarea verde</h3><p class="muted">Confirma que el reporte se escribió y que la tarea terminó.</p></div></div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Resultados">
+        <div class="slide-inner">
+          <p class="kicker">09 · Qué se comprobó</p><h2>Dos corridas, dos propósitos</h2>
+          <div class="grid two" style="margin-top:28px">
+            <div class="card"><div class="big-number">1.673</div><h3>Corrida completa · 20260908</h3><p class="muted">39 columnas · 969 avisos InmoUP · 704 Inmoclick · 189 posibles duplicados cruzados marcados · 40 valores sospechosos.</p></div>
+            <div class="card"><div class="big-number">24</div><h3>Prueba corta · 20260909</h3><p class="muted">36 columnas · solo Inmoclick · clave única · 0 sospechosos · advertencia por estar debajo de 1.000 filas.</p></div>
+          </div>
+          <div class="callout"><strong>La corrida exitosa observada:</strong> aproximadamente 16 segundos y las cinco tareas en verde.</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Residuo">
+        <div class="slide-inner">
+          <p class="kicker">10 · La etapa de modelado</p><h2>¿De dónde sale el residuo?</h2>
+          <p class="lead">No viene directamente del scraping. Se calcula después de entrenar un modelo de regresión.</p>
+          <div class="flow"><div class="flow-step">precio_m2<br><small>real del CSV</small></div><div class="flow-arrow">−</div><div class="flow-step">precio_m2<br><small>esperado por el modelo</small></div><div class="flow-arrow">=</div><div class="flow-step" style="border-color:var(--accent);background:rgba(82,214,197,.12)">residuo<br><small>real − esperado</small></div></div>
+          <div class="grid two"><div class="card"><h3>Ejemplo</h3><p class="muted">Real: <strong>12.000</strong><br>Esperado: <strong>10.000</strong><br>Residuo: <strong class="accent">+2.000</strong></p></div><div class="card"><h3>Interpretación</h3><p class="muted">Positivo: el modelo subestimó. Negativo: sobreestimó. Cerca de cero: predicción cercana.</p></div></div>
+          <div class="callout warn"><strong>Importante:</strong> el DAG actual llega hasta <code>export_csv</code>. El análisis del residuo es una etapa posterior de modelado.</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Historial y diagnóstico">
+        <div class="slide-inner">
+          <p class="kicker">11 · No confundir estados</p><h2>Airflow conserva el historial</h2>
+          <div class="grid two">
+            <div class="card"><h3 class="red">Ejecución roja histórica</h3><p class="muted"><code>smoke_20260909</code> falló por un caso de borde: en un dataset muy corto podía faltar una columna opcional.</p></div>
+            <div class="card"><h3 class="green">Ejecuciones posteriores</h3><p class="muted"><code>smoke_20260909_v2</code> y la ejecución manual posterior terminaron correctamente.</p></div>
+          </div>
+          <div class="callout"><strong>Cómo diagnosticar:</strong><br><code>docker compose ps</code> · revisar el grafo · abrir la tarea · elegir <strong>Logs</strong>.</div>
+          <p class="muted">Que el resumen muestre una falla histórica no significa que la última ejecución esté fallando.</p>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Defensa oral">
+        <div class="slide-inner">
+          <p class="kicker">12 · Respuesta corta</p><h2>Lo que conviene poder explicar</h2>
+          <div class="grid two">
+            <details><summary>¿Qué es una fila?</summary><p class="answer muted">Un aviso de departamento publicado en Inmoclick o InmoUP, no necesariamente una propiedad única.</p></details>
+            <details><summary>¿Qué es la clave primaria?</summary><p class="answer muted"><code>fuente:usr_id-prp_id</code>. El número de aviso solo no alcanza.</p></details>
+            <details><summary>¿Por qué conservar el HTML?</summary><p class="answer muted">Permite corregir la transformación y reprocesar sin volver a scrapear.</p></details>
+            <details><summary>¿Qué hace quality_check?</summary><p class="answer muted">Verifica unicidad, cantidad, forma, tipos, nulos y columnas completamente vacías.</p></details>
+            <details><summary>¿Dónde está el entregable?</summary><p class="answer muted"><code>resultados/AAAAMMDD/</code>: CSV final y <code>quality_report.txt</code>.</p></details>
+            <details><summary>¿Qué es el residuo?</summary><p class="answer muted">Valor real menos valor esperado por el modelo: sirve para clasificar sobrevalorado, de mercado u oportunidad.</p></details>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Repaso final">
+        <div class="slide-inner hero">
+          <p class="kicker">13 · Cierre</p><h2>La historia completa en 20 segundos</h2>
+          <div class="callout" style="font-size:1.2rem"><strong>“Levanto Docker, abro Airflow, reviso el DAG, disparo una prueba corta, sigo las cinco tareas, leo los logs y verifico el CSV. Airflow coordina el proceso; el modelo y sus residuos vienen después”.</strong></div>
+          <p class="lead">Si podés contar esa secuencia y explicar qué hace cada tarea, ya entendiste la arquitectura.</p>
+          <p class="hint">Usá <span class="shortcut">←</span> <span class="shortcut">→</span> para volver a recorrerla. En cada diapositiva, intentá explicarla antes de leer el texto.</p>
+        </div>
+      </section>
+    </main>
+    <footer class="nav"><button id="prevBtn" type="button">← Anterior</button><span class="counter" id="counter">1 / 13 · Portada</span><span class="hint">← → · <span class="shortcut">?</span> ayuda</span><button id="nextBtn" type="button">Siguiente →</button></footer>
+  </div>
+  <script>
+    (() => {
+      const slides = [...document.querySelectorAll('.slide')];
+      const counter = document.getElementById('counter');
+      const progress = document.getElementById('progressBar');
+      let current = 0;
+      function show(index) {
+        current = (index + slides.length) % slides.length;
+        slides.forEach((slide, i) => slide.classList.toggle('active', i === current));
+        counter.textContent = `${current + 1} / ${slides.length} · ${slides[current].dataset.title}`;
+        progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+        history.replaceState(null, '', `#slide-${current + 1}`);
+        document.querySelector('main').scrollTop = 0;
+      }
+      function go(delta) { show(current + delta); }
+      document.getElementById('prevBtn').addEventListener('click', () => go(-1));
+      document.getElementById('nextBtn').addEventListener('click', () => go(1));
+      document.getElementById('printBtn').addEventListener('click', () => window.print());
+      document.getElementById('helpBtn').addEventListener('click', () => alert('Navegación: ←/→ o PageUp/PageDown. Home/End van al inicio/final. Espacio avanza. Esc cierra este mensaje.'));
+      document.addEventListener('keydown', event => {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) return;
+        if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') { event.preventDefault(); go(1); }
+        if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); go(-1); }
+        if (event.key === 'Home') { event.preventDefault(); show(0); }
+        if (event.key === 'End') { event.preventDefault(); show(slides.length - 1); }
+        if (event.key === '?') document.getElementById('helpBtn').click();
+      });
+      const hash = Number((location.hash.match(/slide-(\d+)/) || [])[1]);
+      show(Number.isInteger(hash) && hash > 0 ? hash - 1 : 0);
+    })();
+  </script>
+</body>
+</html>

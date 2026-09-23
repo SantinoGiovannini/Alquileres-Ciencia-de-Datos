@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <rect width="1200" height="720" fill="#111827"/><rect width="82" height="720" fill="#172033"/>
+  <text x="25" y="48" fill="#25b5a6" font-size="30" font-family="Arial" font-weight="700">✦</text><text x="18" y="98" fill="#94a3b8" font-size="14" font-family="Arial">⌂ Inicio</text>
+  <rect x="8" y="122" width="66" height="45" rx="5" fill="#31466b"/><text x="18" y="150" fill="#fff" font-size="14" font-family="Arial">▦ Dags</text>
+  <text x="112" y="52" fill="#fff" font-size="25" font-family="Arial" font-weight="700">DAGs</text><text x="112" y="82" fill="#94a3b8" font-size="15" font-family="Arial">Todos los DAGs disponibles</text>
+  <rect x="112" y="118" width="1040" height="54" rx="6" fill="#1f2937" stroke="#334155"/><text x="138" y="152" fill="#94a3b8" font-size="15" font-family="Arial">⌕ Buscar DAGs</text><text x="1012" y="152" fill="#e2e8f0" font-size="15" font-family="Arial">1 DAG activo</text>
+  <rect x="112" y="204" width="1040" height="235" rx="8" fill="#1f2937" stroke="#334155"/>
+  <text x="142" y="250" fill="#34d399" font-size="20" font-family="Arial">●</text><text x="178" y="251" fill="#fff" font-size="20" font-family="Arial" font-weight="700">brujula_inmobiliaria_pipeline</text>
+  <text x="178" y="284" fill="#94a3b8" font-size="15" font-family="Arial">Pipeline multifuente de alquileres de Mendoza</text>
+  <rect x="178" y="312" width="165" height="28" rx="14" fill="#263c5c"/><text x="195" y="331" fill="#93c5fd" font-size="13" font-family="Arial">brujula-inmobiliaria</text>
+  <rect x="354" y="312" width="92" height="28" rx="14" fill="#263c5c"/><text x="372" y="331" fill="#93c5fd" font-size="13" font-family="Arial">entrega-1</text>
+  <text x="178" y="390" fill="#94a3b8" font-size="14" font-family="Arial">Última ejecución</text><text x="330" y="390" fill="#e2e8f0" font-size="14" font-family="Arial">2026-09-08 23:50:14</text><text x="540" y="390" fill="#34d399" font-size="14" font-family="Arial">● Exitoso</text>
+  <rect x="1030" y="238" width="76" height="30" rx="15" fill="#34d399"/><circle cx="1090" cy="253" r="11" fill="#fff"/>
+  <text x="112" y="520" fill="#64748b" font-size="13" font-family="Arial">El interruptor verde indica que el DAG está activo y se puede disparar.</text>
+</svg>

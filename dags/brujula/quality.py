@@ -7,6 +7,8 @@ dataset, no esconderlo.
 
 import logging
 
+import pandas as pd
+
 from brujula.config import NOMBRE_REPORTE, carpeta_resultados
 from brujula.transform import leer_intermedio
 
@@ -69,6 +71,14 @@ def quality_check(clean_path: str, run_folder: str = None) -> str:
     filas = len(df)
     nulos = df.isna().mean().sort_values(ascending=False)
     todo_nulo = list(df.columns[df.isna().all()])
+    duplicados = df.get(
+        "posible_duplicado_cruzado",
+        pd.Series(False, index=df.index, dtype="boolean"),
+    )
+    sospechas = df.get(
+        "motivo_sospecha",
+        pd.Series(pd.NA, index=df.index, dtype="string"),
+    )
 
     lineas = [
         "REPORTE DE CALIDAD - Brujula Inmobiliaria",
@@ -98,14 +108,14 @@ def quality_check(clean_path: str, run_folder: str = None) -> str:
         f"   avisos en pesos: {int((df['moneda'] == 'ARS').sum())} | "
         f"en dolares: {int((df['moneda'] == 'USD').sum())}",
         f"   marcados como el mismo inmueble en dos portales: "
-        f"{int(df['posible_duplicado_cruzado'].sum())} "
+        f"{int(duplicados.sum())} "
         "(no se borran: la unidad de analisis es el aviso)",
         f"   filas sin precio_m2: {int(df['precio_m2'].isna().sum())} "
         "(sin precio publicado o sin superficie cubierta)",
-        f"   avisos con valores sospechosos: {int(df['motivo_sospecha'].notna().sum())} "
+        f"   avisos con valores sospechosos: {int(sospechas.notna().sum())} "
         "(se marcan, no se borran)",
         *[f"      {m:<45} {n}"
-          for m, n in df["motivo_sospecha"].value_counts().items()],
+          for m, n in sospechas.value_counts().items()],
         *_ventana_de_observacion(df),
         *_cobertura_geografica(df),
     ]
