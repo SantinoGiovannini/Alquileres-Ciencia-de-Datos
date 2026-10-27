@@ -100,6 +100,22 @@ el resto del equipo y la catedra los pueden abrir sin levantar Airflow ni
 volver a scrapear. Una carpeta por fecha de scrapeo, para poder comparar
 como se movio el mercado entre corridas sin pisar la anterior.
 
+## Si recien clonaste el repo
+
+Antes que nada, **que queres hacer**, porque no siempre hace falta levantar
+Airflow:
+
+| Si vas a... | Necesitas |
+|---|---|
+| Analizar o modelar el dataset | Nada mas: el CSV ya esta en `resultados/` |
+| Reprocesar la capa bronce | Airflow + la carpeta `data/raw/`, que **no se versiona** (pesa ~2 GB): te la tiene que pasar alguien del grupo |
+| Scrapear de cero | Airflow y unas 3 horas |
+| Regenerar el notebook | Airflow + las librerias del final de este README |
+
+Tres cosas del proyecto **no estan en el repo a proposito** y hay que
+reponerlas a mano: el `docker-compose.yaml` oficial (se baja), el `.env`
+(se copia del ejemplo) y `data/raw/` (se scrapea o se copia).
+
 ## Como levantar el entorno
 
 ```bash
@@ -113,20 +129,27 @@ docker compose up -d
 > El `docker-compose.yaml` oficial no se versiona (ver `.gitignore`): cada
 > integrante lo baja una vez con el comando de arriba. Lo que si esta
 > versionado es `docker-compose.override.yml`, que Compose junta solo con
-> el oficial y agrega dos cosas: montar `data/` adentro del contenedor (sin
-> eso el HTML crudo y el CSV quedarian encerrados ahi) y apagar los DAGs de
-> ejemplo. Las librerias de scraping se instalan via
-> `_PIP_ADDITIONAL_REQUIREMENTS` en el `.env`.
+> el oficial y agrega tres cosas: montar `data/` y `resultados/` adentro
+> del contenedor (sin eso el HTML crudo y el CSV quedarian encerrados ahi),
+> montar `notebooks/`, y apagar los DAGs de ejemplo. Las librerias se
+> instalan via `_PIP_ADDITIONAL_REQUIREMENTS` en el `.env`.
 
-Despues, en la UI: activar el DAG `brujula_inmobiliaria_pipeline` y
-dispararlo a mano (no tiene schedule). Al dispararlo se le pueden pasar
-tres parametros:
+Despues, en la UI: activar el DAG `brujula_inmobiliaria_pipeline`. **Desde
+la Entrega 2 corre solo, todos los dias a las 06:00** (`schedule="0 9 * * *"`,
+en UTC), asi que alcanza con dejarlo activado y los contenedores
+levantados: el scheduler vive adentro de Docker, no en el sistema
+operativo, asi que con la maquina apagada no corre y, por `catchup=False`,
+los dias perdidos no se recuperan.
+
+Igual se puede disparar a mano, y al hacerlo se le pueden pasar cuatro
+parametros:
 
 | Parametro | Para que |
 |---|---|
 | `max_paginas` | Prueba corta: recorta cuantas busquedas se piden por portal |
 | `fuentes` | Un solo portal, ej. `["inmoup"]` |
 | `fecha` | `AAAAMMDD` de la capa bronce a usar |
+| `acumular_historico` | `True` (por defecto) arma el dataset con **todas** las fechas de `data/raw/`, no solo con la de esta corrida |
 
 > **Ojo con `fecha`.** El contenedor corre en UTC, no en hora argentina:
 > despues de las 21 hs locales el "hoy" de Airflow ya es el dia siguiente,
